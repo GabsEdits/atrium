@@ -14,4 +14,4 @@ esac
 mkdir -p "$data_directory"
 chown -R deno:deno /data
 
-exec su-exec deno "$@"
+exec su-exec deno deno "$@"
