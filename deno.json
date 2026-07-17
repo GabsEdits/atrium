@@ -1,0 +1,25 @@
+{
+  "name": "@steno/atrium",
+  "version": "0.1.0",
+  "exports": "./mod.ts",
+  "license": "MIT",
+  "tasks": {
+    "dev": "deno run -A --watch=src,mod.ts mod.ts",
+    "start": "deno run -A mod.ts",
+    "backup": "deno run -A mod.ts backup",
+    "fmt": "deno fmt README.md deno.json mod.ts src",
+    "fmt:check": "deno fmt --check README.md deno.json mod.ts src",
+    "check": "deno check mod.ts",
+    "test": "deno test -A"
+  },
+  "imports": {
+    "@steno/steno": "jsr:@steno/steno@^0.7.0",
+    "marked": "npm:marked@^16.2.1",
+    "sanitize-html": "npm:sanitize-html@^2.17.0"
+  },
+  "fmt": {
+    "lineWidth": 80,
+    "semiColons": true,
+    "singleQuote": false
+  }
+}

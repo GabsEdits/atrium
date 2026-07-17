@@ -1,0 +1,4 @@
+.atrium/
+.env
+.idea/
+coverage/
