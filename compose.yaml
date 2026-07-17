@@ -1,0 +1,17 @@
+services:
+  atrium:
+    build: .
+    restart: unless-stopped
+    environment:
+      ATRIUM_HOST: 0.0.0.0
+      ATRIUM_PORT: 3000
+      ATRIUM_DATA_DIR: /data
+      ATRIUM_BASE_URL: ${ATRIUM_BASE_URL}
+      ATRIUM_SECURE_COOKIES: "true"
+      ATRIUM_RESEND_API_KEY: ${ATRIUM_RESEND_API_KEY:-}
+      ATRIUM_MAIL_FROM: ${ATRIUM_MAIL_FROM:-Atrium <noreply@localhost>}
+    volumes:
+      - atrium-data:/data
+
+volumes:
+  atrium-data:

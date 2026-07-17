@@ -28,6 +28,21 @@ Do not expose the SQLite database, asset directory, backups, or application
 stdout publicly. Recovery links are logged only when email delivery is not
 configured.
 
+## Dokploy
+
+Use `compose.yaml` and set `ATRIUM_BASE_URL` to the domain configured in
+Dokploy. The included named volume mounts at `/data`, which is the recommended
+Dokploy option for databases and enables Dokploy volume backups.
+
+The container starts briefly as root only to repair ownership on `/data`, then
+drops to the image's unprivileged `deno` user before launching Atrium. This
+also repairs volumes created by an earlier image where `/data` was root-owned.
+
+If deploying Atrium as a single Dokploy Application instead of Compose, add a
+Volume Mount with container path `/data`. Do not use an absolute host bind
+path. Set the same environment variables shown in `.env.example`, then rebuild
+the image rather than only restarting the old container.
+
 ## Backups
 
 ```sh
