@@ -18,7 +18,8 @@ export function renderEditor(
             <strong>Editing</strong>
           </div>
           <a class="global-search" href="/search">
-            <span>⌕</span><span>Search everything</span><kbd>⌘ K</kbd>
+            <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+            <span>Search everything</span><kbd>⌘ K</kbd>
           </a>
           <div class="editor-actions">
             <a class="quiet-action" href="/pages/${document.id}">Cancel</a>
@@ -90,7 +91,8 @@ export function renderEditor(
       </form>`
     : `<header class="topbar">
         <a class="global-search" href="/search">
-          <span>⌕</span><span>Search everything</span><kbd>⌘ K</kbd>
+          <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+          <span>Search everything</span><kbd>⌘ K</kbd>
         </a>
         <div class="breadcrumbs">
           <span>${escapeHtml(document.bookTitle)}</span><span>/</span>
@@ -111,6 +113,12 @@ export function renderEditor(
               </form>
               <form method="post" action="/pages/${document.id}/share/revoke">
                 <button>Revoke share links</button>
+              </form>
+              <form method="post" action="/pages/${document.id}/delete"
+                data-confirm="Delete “${
+      escapeHtml(document.title)
+    }”? This cannot be undone.">
+                <button class="danger-action">Delete page</button>
               </form>
               ${
       isPublic(document)
@@ -158,20 +166,12 @@ function bookRail(
     </a>`;
   }).join("");
 
-  const activeBook = workspace.books.find((book) => book.id === activeBookId);
   return `<aside class="book-rail">
     <a class="rail-brand" href="/" aria-label="Atrium home">A</a>
     <nav class="book-stack" aria-label="Books">${books}</nav>
-    ${
-    activeBook
-      ? `<form method="post" action="/pages" class="rail-create">
-          <input type="hidden" name="bookId" value="${activeBook.id}">
-          <input type="hidden" name="visibility" value="${activeBook.visibility}">
-          <button aria-label="New page in ${escapeHtml(activeBook.title)}"
-            title="New page">＋</button>
-        </form>`
-      : ""
-  }
+    <form method="post" action="/books" class="rail-create">
+      <button aria-label="Create book" title="Create book">＋</button>
+    </form>
     <details class="rail-account">
       <summary aria-label="Account menu" title="${escapeHtml(user.name)}">
         ${escapeHtml(user.name.charAt(0))}
@@ -212,6 +212,17 @@ function documentPanel(
         <button aria-label="New page in ${escapeHtml(book.title)}"
           title="New page">＋</button>
       </form>
+      <details class="book-menu page-menu">
+        <summary class="icon-button" aria-label="Book actions">•••</summary>
+        <div class="page-menu-popover">
+          <form method="post" action="/books/${book.id}/delete"
+            data-confirm="Delete “${
+    escapeHtml(book.title)
+  }” and all its pages? This cannot be undone.">
+            <button class="danger-action">Delete book</button>
+          </form>
+        </div>
+      </details>
     </header>
     <nav aria-label="${escapeHtml(book.title)} pages">
       ${

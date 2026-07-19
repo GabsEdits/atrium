@@ -18,7 +18,8 @@ export function renderApp(user: User, workspace: WorkspaceOverview): string {
             <strong>${escapeHtml(activePage?.title ?? "Welcome")}</strong>
           </div>
           <a class="global-search" href="/search">
-            <span>⌕</span><span>Search everything</span><kbd>⌘ K</kbd>
+            <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+            <span>Search everything</span><kbd>⌘ K</kbd>
           </a>
           <div class="topbar-actions">
             <span class="visibility-badge">
@@ -32,12 +33,14 @@ export function renderApp(user: User, workspace: WorkspaceOverview): string {
         : ""
     }
             <a class="icon-button" href="/settings/members"
-              aria-label="Workspace settings">•••</a>
+              aria-label="Workspace settings"><i class="ph ph-gear"
+                aria-hidden="true"></i></a>
           </div>
         </header>
         <article class="document">
           <div class="document-meta">
-            <span class="document-icon">✦</span>
+            <span class="document-icon"><i class="ph ph-sparkle"
+              aria-hidden="true"></i></span>
             <span>Getting started</span>
           </div>
           <h1>Welcome to Atrium</h1>
@@ -52,7 +55,7 @@ export function renderApp(user: User, workspace: WorkspaceOverview): string {
             whether each part stays private or becomes public.
           </p>
           <div class="callout">
-            <span>◎</span>
+            <i class="ph ph-info" aria-hidden="true"></i>
             <div>
               <strong>Privacy is inherited</strong>
               <p>New books and pages begin with their workspace visibility.</p>
@@ -130,6 +133,17 @@ function documentPanel(
         <button aria-label="New page in ${escapeHtml(book.title)}"
           title="New page">＋</button>
       </form>
+      <details class="book-menu page-menu">
+        <summary class="icon-button" aria-label="Book actions">•••</summary>
+        <div class="page-menu-popover">
+          <form method="post" action="/books/${book.id}/delete"
+            data-confirm="Delete “${
+    escapeHtml(book.title)
+  }” and all its pages? This cannot be undone.">
+            <button class="danger-action">Delete book</button>
+          </form>
+        </div>
+      </details>
     </header>
     <nav aria-label="${escapeHtml(book.title)} pages">
       ${

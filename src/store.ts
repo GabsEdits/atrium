@@ -309,6 +309,21 @@ export class AtriumStore {
     ).run(normalizedTitle, bookId);
   }
 
+  deleteBook(userId: number, bookId: number): string[] {
+    const book = this.#database.prepare(
+      "SELECT workspace_id FROM books WHERE id = ?",
+    ).get(bookId) as Record<string, unknown> | undefined;
+    if (!book) throw new Error("Book not found.");
+    this.#assertCanEdit(userId, Number(book.workspace_id));
+    const assets = this.#database.prepare(
+      `SELECT assets.storage_name FROM assets
+       JOIN pages ON pages.id = assets.page_id
+       WHERE pages.book_id = ?`,
+    ).all(bookId) as Array<Record<string, unknown>>;
+    this.#database.prepare("DELETE FROM books WHERE id = ?").run(bookId);
+    return assets.map((asset) => String(asset.storage_name));
+  }
+
   createPage(
     userId: number,
     bookId: number,
@@ -331,6 +346,17 @@ export class AtriumStore {
       visibility,
     );
     return Number(result.lastInsertRowid);
+  }
+
+  deletePage(userId: number, pageId: number): string[] {
+    const page = this.getPageForUser(pageId, userId);
+    if (!page) throw new Error("Page not found.");
+    this.#assertCanEdit(userId, page.workspaceId);
+    const assets = this.#database.prepare(
+      "SELECT storage_name FROM assets WHERE page_id = ?",
+    ).all(pageId) as Array<Record<string, unknown>>;
+    this.#database.prepare("DELETE FROM pages WHERE id = ?").run(pageId);
+    return assets.map((asset) => String(asset.storage_name));
   }
 
   updatePage(

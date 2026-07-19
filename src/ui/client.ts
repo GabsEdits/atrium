@@ -6,6 +6,75 @@ let searchTimer;
 let searchController;
 let searchIndex = 0;
 
+const actionIcons = new Map([
+  ["＋", "plus"],
+  ["✓", "check"],
+  ["•••", "dots-three"],
+  ["B", "text-b"],
+  ["I", "text-italic"],
+  ["↗", "link"],
+  ["☷", "list-bullets"],
+  ["❞", "quotes"],
+  ["▦", "table"],
+  ["save", "floppy-disk"],
+  ["cancel", "x"],
+  ["edit", "pencil-simple"],
+  ["done", "check"],
+  ["search", "magnifying-glass"],
+  ["upload", "upload-simple"],
+  ["delete", "trash"],
+  ["delete page", "trash"],
+  ["delete book", "trash"],
+  ["remove", "user-minus"],
+  ["update", "floppy-disk"],
+  ["restore", "arrow-counter-clockwise"],
+  ["back to page", "arrow-left"],
+  ["return to editor", "arrow-left"],
+  ["back to sign in", "arrow-left"],
+  ["copy share link", "link"],
+  ["revoke share links", "link-break"],
+  ["sign out", "sign-out"],
+  ["create invitation", "user-plus"],
+  ["create account", "user-plus"],
+  ["accept invitation", "check-circle"],
+  ["verify and sign in", "sign-in"],
+  ["send recovery link", "envelope-simple"],
+  ["reset password", "arrow-clockwise"],
+  ["disable mfa", "shield-slash"],
+  ["enable mfa", "shield-check"],
+  ["set up authenticator", "qr-code"],
+  ["set up atrium", "arrow-right"],
+  ["create workspace", "plus-circle"],
+  ["sign in", "sign-in"],
+  ["continue with single sign-on", "key"],
+  ["open", "arrow-square-out"],
+]);
+
+document.querySelectorAll(
+  "button, a.button, a.quiet-action, a.icon-button, summary.icon-button",
+).forEach((action) => {
+  if (action.querySelector(".ph")) return;
+  const label = action.textContent.trim();
+  const iconName = actionIcons.get(label) || actionIcons.get(label.toLowerCase());
+  if (!iconName) return;
+  const icon = document.createElement("i");
+  icon.className = "ph ph-" + iconName;
+  icon.setAttribute("aria-hidden", "true");
+  if (["＋", "✓", "•••", "B", "I", "↗", "☷", "❞", "▦"].includes(label)) {
+    action.replaceChildren(icon);
+  } else {
+    action.prepend(icon);
+  }
+});
+
+document.querySelectorAll("form[data-confirm]").forEach((form) => {
+  form.addEventListener("submit", (event) => {
+    if (!window.confirm(form.dataset.confirm || "Are you sure?")) {
+      event.preventDefault();
+    }
+  });
+});
+
 const openSearch = () => {
   if (!searchDialog || !searchInput) {
     window.location.assign("/search");

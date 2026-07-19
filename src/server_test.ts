@@ -117,6 +117,50 @@ Deno.test("book renames preserve the stable public slug", () => {
   assertEquals(page?.bookSlug, "welcome");
 });
 
+Deno.test("editors can delete pages and their stored assets", () => {
+  using store = testStore();
+  const owner = setupTestOwner(store);
+  const workspace = store.getWorkspaceOverview(owner.id);
+  const pageId = workspace.books[0].pages[0].id;
+  store.createAsset({
+    userId: owner.id,
+    pageId,
+    storageName: "page-asset",
+    originalName: "diagram.png",
+    mimeType: "image/png",
+    size: 10,
+  });
+
+  assertEquals(store.deletePage(owner.id, pageId), ["page-asset"]);
+  assertEquals(store.getPageForUser(pageId, owner.id), null);
+  assertEquals(store.getAsset(1), null);
+});
+
+Deno.test("deleting a book removes all of its pages and assets", () => {
+  using store = testStore();
+  const owner = setupTestOwner(store);
+  const workspace = store.getWorkspaceOverview(owner.id);
+  const book = workspace.books[0];
+  const secondPageId = store.createPage(
+    owner.id,
+    book.id,
+    "Second page",
+    "private",
+  );
+  store.createAsset({
+    userId: owner.id,
+    pageId: secondPageId,
+    storageName: "book-asset",
+    originalName: "notes.txt",
+    mimeType: "text/plain",
+    size: 10,
+  });
+
+  assertEquals(store.deleteBook(owner.id, book.id), ["book-asset"]);
+  assertEquals(store.getWorkspaceOverview(owner.id).books, []);
+  assertEquals(store.getPageForUser(secondPageId, owner.id), null);
+});
+
 Deno.test("Markdown preview is rendered through the Steno template core", () => {
   const output = renderMarkdown("# Hello\n\nThis is **Atrium**.");
 

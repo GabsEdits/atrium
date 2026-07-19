@@ -6,14 +6,16 @@ export function page(title: string, body: string, bodyClass = ""): string {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <title>${escapeHtml(title)}</title>
+    <link rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css">
     <link rel="stylesheet" href="/assets/app.css?v=8">
-    <script src="/assets/app.js?v=8" defer></script>
+    <script src="/assets/app.js?v=10" defer></script>
   </head>
   <body class="${escapeHtml(bodyClass)}">${body}
     <dialog class="search-dialog" data-search-dialog aria-labelledby="search-dialog-title">
       <div class="search-dialog-shell">
         <header>
-          <span>⌕</span>
+          <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
           <input type="search" data-search-input placeholder="Search pages…"
             aria-label="Search pages" autocomplete="off">
           <kbd>esc</kbd>

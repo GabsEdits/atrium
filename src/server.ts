@@ -746,6 +746,25 @@ export async function handleRequest(
     }
   }
 
+  const deletePageMatch = url.pathname.match(/^\/pages\/(\d+)\/delete$/);
+  if (request.method === "POST" && deletePageMatch) {
+    if (!isSameOrigin(request)) {
+      return new Response("Invalid origin", { status: 403 });
+    }
+    const user = await currentUser(request, store);
+    if (!user) return redirect("/login");
+    try {
+      const storageNames = store.deletePage(
+        user.id,
+        Number(deletePageMatch[1]),
+      );
+      await removeAssetFiles(runtime.dataDirectory, storageNames);
+      return redirect(firstPageUrl(store.getWorkspaceOverview(user.id)));
+    } catch {
+      return new Response("Forbidden", { status: 403 });
+    }
+  }
+
   const pageMatch = url.pathname.match(/^\/pages\/(\d+)(\/edit)?$/);
   if (pageMatch) {
     const user = await currentUser(request, store);
@@ -822,6 +841,25 @@ export async function handleRequest(
     return redirect(`/pages/${pageId}/edit`);
   }
 
+  const deleteBookMatch = url.pathname.match(/^\/books\/(\d+)\/delete$/);
+  if (request.method === "POST" && deleteBookMatch) {
+    if (!isSameOrigin(request)) {
+      return new Response("Invalid origin", { status: 403 });
+    }
+    const user = await currentUser(request, store);
+    if (!user) return redirect("/login");
+    try {
+      const storageNames = store.deleteBook(
+        user.id,
+        Number(deleteBookMatch[1]),
+      );
+      await removeAssetFiles(runtime.dataDirectory, storageNames);
+      return redirect(firstPageUrl(store.getWorkspaceOverview(user.id)));
+    } catch {
+      return new Response("Forbidden", { status: 403 });
+    }
+  }
+
   const renameBookMatch = url.pathname.match(/^\/books\/(\d+)$/);
   if (request.method === "POST" && renameBookMatch) {
     if (!isSameOrigin(request)) {
@@ -868,6 +906,26 @@ export async function handleRequest(
   }
 
   return new Response("Not found", { status: 404 });
+}
+
+function firstPageUrl(
+  workspace: ReturnType<AtriumStore["getWorkspaceOverview"]>,
+): string {
+  const page = workspace.books.find((book) => book.pages.length)?.pages[0];
+  return page ? `/pages/${page.id}` : "/";
+}
+
+async function removeAssetFiles(
+  dataDirectory: string,
+  storageNames: string[],
+): Promise<void> {
+  for (const storageName of storageNames) {
+    try {
+      await Deno.remove(`${dataDirectory}/assets/${storageName}`);
+    } catch (error) {
+      if (!(error instanceof Deno.errors.NotFound)) throw error;
+    }
+  }
 }
 
 async function completeSetup(
@@ -964,7 +1022,7 @@ function html(body: string, status = 200): Response {
     status,
     headers: {
       "content-security-policy":
-        "default-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+        "default-src 'self'; style-src 'self' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
       "cross-origin-opener-policy": "same-origin",
       "cross-origin-resource-policy": "same-origin",
       "permissions-policy":
