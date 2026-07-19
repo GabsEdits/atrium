@@ -181,6 +181,9 @@ a { color: inherit; text-decoration: none; }
 }
 .rendered-markdown pre { overflow: auto; border-radius: var(--radius-lg); padding: 1rem; background: var(--surface-subtle); }
 .rendered-markdown pre code { border: 0; padding: 0; }
+.rendered-markdown img {
+  display: block; max-width: 100%; height: auto; border-radius: var(--radius-lg);
+}
 .updated-at { margin-top: 4rem; color: var(--muted-light) !important; font-size: .7rem; }
 .editor { min-height: 100vh; }
 .editor-toolbar {
@@ -312,7 +315,7 @@ a { color: inherit; text-decoration: none; }
 }
 /* Atrium's document-first workspace */
 .atrium-shell {
-  display: grid; min-height: 100vh;
+  display: grid; height: 100vh; min-height: 0;
   grid-template-columns: 5.25rem 14rem minmax(0, 1fr);
 }
 .book-rail {
@@ -443,7 +446,10 @@ a { color: inherit; text-decoration: none; }
 .document-panel nav .document-link-active {
   color: var(--foreground); background: var(--accent-soft); font-weight: 600;
 }
-.workspace-canvas { min-width: 0; min-height: 100vh; background: var(--surface); }
+.workspace-canvas {
+  min-width: 0; min-height: 0; overflow-x: hidden; overflow-y: auto;
+  background: var(--surface);
+}
 .workspace-bar, .topbar {
   position: relative; display: grid; height: 3.25rem;
   grid-template-columns: minmax(0,1fr) minmax(14rem, 24rem) minmax(0,1fr);
