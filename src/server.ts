@@ -22,7 +22,7 @@ import { renderWelcome } from "./ui/welcome.ts";
 import { renderMarkdown } from "./renderer.ts";
 import {
   renderAssetCreated,
-  renderAssets,`z`
+  renderAssets,
   renderExistingInvitation,
   renderInvitation,
   renderMembers,
