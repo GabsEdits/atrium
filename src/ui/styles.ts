@@ -366,11 +366,16 @@ button:focus-visible, .button:focus-visible, .icon-button:focus-visible,
 .book-tile-active {
   outline: 2px solid var(--foreground); outline-offset: 2px;
 }
-.book-tone-0 { background: #52525b; }
-.book-tone-1 { background: #57534e; }
-.book-tone-2 { background: #3f4f46; }
-.book-tone-3 { background: #44465c; }
-.book-tone-4 { background: #59464e; }
+.book-color-slate { --book-color: #52525b; }
+.book-color-sand { --book-color: #78716c; }
+.book-color-forest { --book-color: #3f6653; }
+.book-color-indigo { --book-color: #4f5685; }
+.book-color-rose { --book-color: #85566a; }
+.book-color-amber { --book-color: #9a6b2f; }
+.book-color-sky { --book-color: #3f7185; }
+.book-color-violet { --book-color: #6d568e; }
+.book-tile { background: var(--book-color, #52525b); }
+.book-tile .book-emoji { font-size: 1.25rem; letter-spacing: 0; }
 .rail-create button {
   display: grid; width: 2rem; height: 2rem; place-items: center;
   border: 1px dashed var(--border-strong); border-radius: .5rem;
@@ -407,20 +412,24 @@ button:focus-visible, .button:focus-visible, .icon-button:focus-visible,
 }
 .rail-account-menu form { margin: 0; }
 .document-panel {
-  height: 100vh; overflow-y: auto; border-right: 1px solid var(--border);
+  display: flex; height: 100vh; min-height: 0; overflow: visible;
+  flex-direction: column; border-right: 1px solid var(--border);
   padding: .7rem .6rem; background: color-mix(in srgb, var(--background) 74%, var(--surface));
 }
 .document-panel header {
-  display: flex; height: 2.5rem; align-items: center; justify-content: space-between;
+  position: relative; z-index: 20; display: flex; height: 2.5rem;
+  flex: 0 0 auto; align-items: center; justify-content: space-between;
   gap: .5rem; padding: 0 .45rem;
 }
-.document-panel header form { display: flex; margin: 0; }
-.document-panel header button {
+.document-panel > header > form { display: flex; margin: 0; }
+.document-panel > header > form > button {
   display: grid; width: 1.65rem; height: 1.65rem; place-items: center;
   border: 0; border-radius: var(--radius-sm); color: var(--muted);
   background: transparent; cursor: pointer;
 }
-.document-panel header button:hover { color: var(--foreground); background: var(--surface-subtle); }
+.document-panel > header > form > button:hover {
+  color: var(--foreground); background: var(--surface-subtle);
+}
 .document-panel .book-title-form {
   min-width: 0; flex: 1; align-items: center; gap: .4rem;
 }
@@ -443,7 +452,10 @@ button:focus-visible, .button:focus-visible, .icon-button:focus-visible,
 .document-panel .book-title-form button.book-title-save-visible {
   opacity: 1; pointer-events: auto;
 }
-.document-panel nav { display: grid; gap: .08rem; padding-top: .55rem; }
+.document-panel nav {
+  display: grid; min-height: 0; gap: .08rem; overflow-y: auto;
+  align-content: start; padding-top: .55rem;
+}
 .document-panel nav a {
   display: flex; min-width: 0; align-items: center; gap: .5rem;
   border-radius: var(--radius-sm); padding: .48rem .55rem;
@@ -586,6 +598,45 @@ button:focus-visible, .button:focus-visible, .icon-button:focus-visible,
 .page-menu-popover .danger-action { color: #dc2626; }
 .page-menu-popover .danger-action:hover { color: #b91c1c; background: #fef2f2; }
 .page-menu-popover form { margin: 0; }
+.book-menu .page-menu-popover {
+  right: -.25rem; width: 13rem;
+}
+.book-appearance-form {
+  display: grid !important; gap: .75rem; margin-bottom: .4rem !important;
+  border-bottom: 1px solid var(--border); padding: .45rem .45rem .8rem;
+}
+.book-appearance-form > strong {
+  overflow: visible; white-space: nowrap; font-size: .72rem;
+}
+.book-color-options {
+  display: grid; grid-template-columns: repeat(4, 1.35rem); gap: .55rem;
+}
+.book-color-options label {
+  display: grid; width: 1.35rem; height: 1.35rem; place-items: center;
+  border-radius: 50%; background: var(--book-color); cursor: pointer;
+}
+.book-color-options input {
+  position: absolute; width: 1px; height: 1px; opacity: 0;
+}
+.book-color-options span {
+  width: .45rem; height: .45rem; border-radius: 50%; background: transparent;
+}
+.book-color-options input:checked + span {
+  background: white; box-shadow: 0 0 0 2px rgba(255,255,255,.35);
+}
+.book-color-options label:has(input:focus-visible) {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+.book-icon-field {
+  display: grid; grid-template-columns: auto 1fr; align-items: center;
+  gap: .55rem; color: var(--muted); font-size: .68rem;
+}
+.book-icon-field input {
+  min-width: 0; height: 2rem; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); padding: 0 .55rem;
+  color: var(--foreground); background: var(--surface);
+}
+.book-appearance-form .button { width: 100%; }
 .visual-editor { background: var(--background); }
 .visual-editor-canvas {
   height: calc(100vh - 3.25rem); overflow-y: auto; padding: 3.5rem 1.5rem 9rem;

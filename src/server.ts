@@ -860,6 +860,33 @@ export async function handleRequest(
     }
   }
 
+  const bookAppearanceMatch = url.pathname.match(
+    /^\/books\/(\d+)\/appearance$/,
+  );
+  if (request.method === "POST" && bookAppearanceMatch) {
+    if (!isSameOrigin(request)) {
+      return new Response("Invalid origin", { status: 403 });
+    }
+    const user = await currentUser(request, store);
+    if (!user) return redirect("/login");
+    const form = await request.formData();
+    try {
+      store.updateBookAppearance(
+        user.id,
+        Number(bookAppearanceMatch[1]),
+        String(form.get("color") ?? ""),
+        String(form.get("icon") ?? ""),
+      );
+    } catch (error) {
+      return new Response((error as Error).message, { status: 422 });
+    }
+    const returnTo = Number(form.get("returnTo"));
+    const page = Number.isSafeInteger(returnTo)
+      ? store.getPageForUser(returnTo, user.id)
+      : null;
+    return redirect(page ? `/pages/${returnTo}` : "/");
+  }
+
   const renameBookMatch = url.pathname.match(/^\/books\/(\d+)$/);
   if (request.method === "POST" && renameBookMatch) {
     if (!isSameOrigin(request)) {

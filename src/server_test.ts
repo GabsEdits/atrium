@@ -117,6 +117,45 @@ Deno.test("book renames preserve the stable public slug", () => {
   assertEquals(page?.bookSlug, "welcome");
 });
 
+Deno.test("book appearance supports palette colors and emoji icons", () => {
+  using store = testStore();
+  const owner = setupTestOwner(store);
+  const book = store.getWorkspaceOverview(owner.id).books[0];
+
+  store.updateBookAppearance(owner.id, book.id, "violet", "📚");
+
+  const updated = store.getWorkspaceOverview(owner.id).books[0];
+  assertEquals(updated.color, "violet");
+  assertEquals(updated.icon, "📚");
+  assertThrows(
+    () => store.updateBookAppearance(owner.id, book.id, "chartreuse", ""),
+    Error,
+    "Invalid book color",
+  );
+  const newBookId = store.createBook(
+    owner.id,
+    store.getWorkspaceOverview(owner.id).id,
+    "Random color",
+    "private",
+  );
+  const newBook = store.getWorkspaceOverview(owner.id).books.find((item) =>
+    item.id === newBookId
+  );
+  assertEquals(
+    [
+      "slate",
+      "sand",
+      "forest",
+      "indigo",
+      "rose",
+      "amber",
+      "sky",
+      "violet",
+    ].includes(newBook?.color ?? ""),
+    true,
+  );
+});
+
 Deno.test("editors can delete pages and their stored assets", () => {
   using store = testStore();
   const owner = setupTestOwner(store);

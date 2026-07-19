@@ -20,6 +20,8 @@ export type WorkspaceOverview = {
     id: number;
     title: string;
     visibility: ContentVisibility;
+    color: string;
+    icon: string | null;
     pages: Array<{ id: number; title: string; visibility: ContentVisibility }>;
   }>;
 };
@@ -110,8 +112,8 @@ export class AtriumStore {
         "INSERT INTO memberships (user_id, workspace_id, role) VALUES (?, ?, 'owner')",
       ).run(userId, workspaceId);
       const bookResult = this.#database.prepare(
-        "INSERT INTO books (workspace_id, title, slug, visibility) VALUES (?, 'Welcome', 'welcome', 'private')",
-      ).run(workspaceId);
+        "INSERT INTO books (workspace_id, title, slug, visibility, color) VALUES (?, 'Welcome', 'welcome', 'private', ?)",
+      ).run(workspaceId, randomBookColor());
       this.#database.prepare(
         `INSERT INTO pages (book_id, title, slug, body, visibility)
          VALUES (?, 'Welcome to Atrium', 'welcome', ?, 'private')`,
@@ -206,7 +208,7 @@ export class AtriumStore {
     if (!workspace) throw new Error("User has no workspace.");
     const workspaceId = Number(workspace.id);
     const books = this.#database.prepare(
-      "SELECT id, title, visibility FROM books WHERE workspace_id = ? ORDER BY position, id",
+      "SELECT id, title, visibility, color, icon FROM books WHERE workspace_id = ? ORDER BY position, id",
     ).all(workspaceId) as Array<Record<string, unknown>>;
 
     return {
@@ -218,6 +220,8 @@ export class AtriumStore {
         id: Number(book.id),
         title: String(book.title),
         visibility: book.visibility as ContentVisibility,
+        color: String(book.color),
+        icon: book.icon === null ? null : String(book.icon),
         pages: (this.#database.prepare(
           "SELECT id, title, visibility FROM pages WHERE book_id = ? ORDER BY position, id",
         ).all(Number(book.id)) as Array<Record<string, unknown>>).map((
@@ -289,8 +293,14 @@ export class AtriumStore {
   ): number {
     this.#assertCanEdit(userId, workspaceId);
     const result = this.#database.prepare(
-      "INSERT INTO books (workspace_id, title, slug, visibility) VALUES (?, ?, ?, ?)",
-    ).run(workspaceId, title, uniqueSlug(title), visibility);
+      "INSERT INTO books (workspace_id, title, slug, visibility, color) VALUES (?, ?, ?, ?, ?)",
+    ).run(
+      workspaceId,
+      title,
+      uniqueSlug(title),
+      visibility,
+      randomBookColor(),
+    );
     return Number(result.lastInsertRowid);
   }
 
@@ -307,6 +317,27 @@ export class AtriumStore {
     this.#database.prepare(
       "UPDATE books SET title = ? WHERE id = ?",
     ).run(normalizedTitle, bookId);
+  }
+
+  updateBookAppearance(
+    userId: number,
+    bookId: number,
+    color: string,
+    icon: string,
+  ): void {
+    const book = this.#database.prepare(
+      "SELECT workspace_id FROM books WHERE id = ?",
+    ).get(bookId) as Record<string, unknown> | undefined;
+    if (!book) throw new Error("Book not found.");
+    this.#assertCanEdit(userId, Number(book.workspace_id));
+    if (!BOOK_COLORS.has(color)) throw new Error("Invalid book color.");
+    const normalizedIcon = icon.trim();
+    if ([...normalizedIcon].length > 4) {
+      throw new Error("Book icons are limited to one emoji.");
+    }
+    this.#database.prepare(
+      "UPDATE books SET color = ?, icon = ? WHERE id = ?",
+    ).run(color, normalizedIcon || null, bookId);
   }
 
   deleteBook(userId: number, bookId: number): string[] {
@@ -1022,6 +1053,8 @@ export class AtriumStore {
         title TEXT NOT NULL,
         slug TEXT NOT NULL,
         visibility TEXT NOT NULL CHECK (visibility IN ('public', 'unlisted', 'private')),
+        color TEXT NOT NULL DEFAULT 'slate',
+        icon TEXT,
         position INTEGER NOT NULL DEFAULT 0,
         UNIQUE (workspace_id, slug)
       );
@@ -1172,7 +1205,34 @@ export class AtriumStore {
         "UPDATE page_shares SET expires_at = datetime('now', '+30 days') WHERE expires_at IS NULL",
       );
     }
+    const bookColumns = this.#database.prepare("PRAGMA table_info(books)")
+      .all() as Array<Record<string, unknown>>;
+    if (!bookColumns.some((column) => column.name === "color")) {
+      this.#database.exec(
+        "ALTER TABLE books ADD COLUMN color TEXT NOT NULL DEFAULT 'slate'",
+      );
+    }
+    if (!bookColumns.some((column) => column.name === "icon")) {
+      this.#database.exec("ALTER TABLE books ADD COLUMN icon TEXT");
+    }
   }
+}
+
+const BOOK_COLOR_VALUES = [
+  "slate",
+  "sand",
+  "forest",
+  "indigo",
+  "rose",
+  "amber",
+  "sky",
+  "violet",
+] as const;
+const BOOK_COLORS = new Set<string>(BOOK_COLOR_VALUES);
+
+function randomBookColor(): string {
+  const value = crypto.getRandomValues(new Uint32Array(1))[0];
+  return BOOK_COLOR_VALUES[value % BOOK_COLOR_VALUES.length];
 }
 
 function mapPage(row: Record<string, unknown>): PageDetail {

@@ -8,7 +8,7 @@ export function page(title: string, body: string, bodyClass = ""): string {
     <title>${escapeHtml(title)}</title>
     <link rel="stylesheet"
       href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css">
-    <link rel="stylesheet" href="/assets/app.css?v=8">
+    <link rel="stylesheet" href="/assets/app.css?v=10">
     <script src="/assets/app.js?v=10" defer></script>
   </head>
   <body class="${escapeHtml(bodyClass)}">${body}

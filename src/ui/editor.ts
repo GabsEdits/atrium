@@ -152,16 +152,18 @@ function bookRail(
   workspace: WorkspaceOverview,
   activeBookId: number,
 ): string {
-  const books = workspace.books.map((book, index) => {
+  const books = workspace.books.map((book) => {
     const href = book.pages[0] ? `/pages/${book.pages[0].id}` : "/";
     const initials = book.title.trim().split(/\s+/).slice(0, 2)
       .map((word) => word.charAt(0)).join("").toUpperCase();
     return `<a class="book-tile ${
       book.id === activeBookId ? "book-tile-active" : ""
-    } book-tone-${index % 5}"
+    } book-color-${escapeHtml(book.color)}"
       href="${href}" title="${escapeHtml(book.title)}"
       aria-label="${escapeHtml(book.title)}">
-      <span>${escapeHtml(initials || "B")}</span>
+      <span class="${book.icon ? "book-emoji" : ""}">${
+      escapeHtml(book.icon || initials || "B")
+    }</span>
       <small>${book.pages.length}</small>
     </a>`;
   }).join("");
@@ -215,6 +217,7 @@ function documentPanel(
       <details class="book-menu page-menu">
         <summary class="icon-button" aria-label="Book actions">•••</summary>
         <div class="page-menu-popover">
+          ${bookAppearanceForm(book, activePageId)}
           <form method="post" action="/books/${book.id}/delete"
             data-confirm="Delete “${
     escapeHtml(book.title)
@@ -235,6 +238,44 @@ function documentPanel(
   }
     </nav>
   </aside>`;
+}
+
+function bookAppearanceForm(
+  book: WorkspaceOverview["books"][number],
+  activePageId: number,
+): string {
+  const colors = [
+    "slate",
+    "sand",
+    "forest",
+    "indigo",
+    "rose",
+    "amber",
+    "sky",
+    "violet",
+  ];
+  return `<form method="post" action="/books/${book.id}/appearance"
+    class="book-appearance-form">
+    <strong>Book appearance</strong>
+    <div class="book-color-options" aria-label="Book color">
+      ${
+    colors.map((color) =>
+      `<label class="book-color-${color}" title="${color}">
+        <input type="radio" name="color" value="${color}"
+          ${book.color === color ? "checked" : ""}>
+        <span></span>
+      </label>`
+    ).join("")
+  }
+    </div>
+    <label class="book-icon-field">
+      <span>Custom text</span>
+      <input name="icon" value="${escapeHtml(book.icon ?? "")}"
+        maxlength="16" placeholder="e.g. 📘">
+    </label>
+    <input type="hidden" name="returnTo" value="${activePageId}">
+    <button class="button button-secondary" type="submit">Update</button>
+  </form>`;
 }
 
 function isPublic(document: PageDetail): boolean {
