@@ -22,7 +22,7 @@ import { renderWelcome } from "./ui/welcome.ts";
 import { renderMarkdown } from "./renderer.ts";
 import {
   renderAssetCreated,
-  renderAssets,
+  renderAssets,`z`
   renderExistingInvitation,
   renderInvitation,
   renderMembers,
@@ -563,6 +563,15 @@ export async function handleRequest(
     }
   }
 
+  if (request.method === "GET" && url.pathname === "/api/search") {
+    const user = await currentUser(request, store);
+    if (!user) return Response.json({ results: [] }, { status: 401 });
+    const query = (url.searchParams.get("q") ?? "").trim().slice(0, 200);
+    return Response.json({
+      results: query ? store.search(user.id, query) : [],
+    });
+  }
+
   if (request.method === "GET" && url.pathname === "/search") {
     const user = await currentUser(request, store);
     if (!user) return redirect("/login");
@@ -702,6 +711,13 @@ export async function handleRequest(
       size: file.size,
     });
     const assetUrl = `/files/${assetId}/${encodeURIComponent(file.name)}`;
+    if (request.headers.get("accept")?.includes("application/json")) {
+      return Response.json({
+        url: assetUrl,
+        name: file.name,
+        image: mimeType.startsWith("image/"),
+      });
+    }
     return html(
       renderAssetCreated(document, assetUrl, mimeType.startsWith("image/")),
     );
@@ -804,6 +820,30 @@ export async function handleRequest(
       workspace.visibility,
     );
     return redirect(`/pages/${pageId}/edit`);
+  }
+
+  const renameBookMatch = url.pathname.match(/^\/books\/(\d+)$/);
+  if (request.method === "POST" && renameBookMatch) {
+    if (!isSameOrigin(request)) {
+      return new Response("Invalid origin", { status: 403 });
+    }
+    const user = await currentUser(request, store);
+    if (!user) return redirect("/login");
+    const form = await request.formData();
+    const title = String(form.get("title") ?? "").trim();
+    try {
+      store.renameBook(user.id, Number(renameBookMatch[1]), title);
+    } catch (error) {
+      return new Response((error as Error).message, { status: 422 });
+    }
+    if (request.headers.get("accept")?.includes("application/json")) {
+      return Response.json({ title });
+    }
+    const returnTo = Number(form.get("returnTo"));
+    const page = Number.isSafeInteger(returnTo)
+      ? store.getPageForUser(returnTo, user.id)
+      : null;
+    return redirect(page ? `/pages/${returnTo}` : "/");
   }
 
   if (request.method === "POST" && url.pathname === "/pages") {

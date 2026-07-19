@@ -9,91 +9,89 @@ export function renderEditor(
   editing: boolean,
   error?: string,
 ): string {
-  const navigation = workspace.books.map((book) => `
-    <section class="nav-group">
-      <div class="nav-group-heading">
-        <span>${escapeHtml(book.title)}</span>
-        <form method="post" action="/pages" class="inline-create">
-          <input type="hidden" name="bookId" value="${book.id}">
-          <input type="hidden" name="visibility" value="${book.visibility}">
-          <button aria-label="New page in ${escapeHtml(book.title)}">＋</button>
-        </form>
-      </div>
-      ${
-    book.pages.map((item) => `
-        <a class="page-link ${
-      item.id === document.id ? "page-link-active" : ""
-    }"
-          href="/pages/${item.id}">
-          <span class="page-icon">⌞</span>${escapeHtml(item.title)}
-        </a>`).join("")
-  }
-    </section>`).join("");
-
   const main = editing
-    ? `<form method="post" action="/pages/${document.id}" class="editor"
-        data-markdown-editor>
-        <header class="editor-toolbar">
-          <a class="button button-secondary" href="/pages/${document.id}">Cancel</a>
+    ? `<form method="post" action="/pages/${document.id}" class="editor visual-editor"
+        data-visual-editor data-upload-url="/pages/${document.id}/assets">
+        <header class="workspace-bar editor-workspace-bar">
+          <div class="breadcrumbs">
+            <span>${escapeHtml(document.bookTitle)}</span><span>/</span>
+            <strong>Editing</strong>
+          </div>
+          <a class="global-search" href="/search">
+            <span>⌕</span><span>Search everything</span><kbd>⌘ K</kbd>
+          </a>
           <div class="editor-actions">
-            <label class="visibility-control">Workspace
-              <select name="workspaceVisibility" aria-label="Workspace visibility">
-                ${visibilityOptions(document.workspaceVisibility)}
-              </select>
-            </label>
-            <label class="visibility-control">Book
-              <select name="bookVisibility" aria-label="Book visibility">
-                ${visibilityOptions(document.bookVisibility)}
-              </select>
-            </label>
-            <label class="visibility-control">Page
-              <select name="visibility" aria-label="Page visibility">
-                ${visibilityOptions(document.visibility)}
-              </select>
-            </label>
-            <button class="button button-primary" type="submit">Save changes</button>
+            <a class="quiet-action" href="/pages/${document.id}">Cancel</a>
+            <span class="save-state" data-save-state aria-live="polite"></span>
+            <details class="visibility-menu">
+              <summary><span class="visibility-dot visibility-${document.visibility}"></span>
+                ${escapeHtml(document.visibility)}</summary>
+              <div class="visibility-popover">
+                <label>Workspace<select name="workspaceVisibility">
+                  ${visibilityOptions(document.workspaceVisibility)}
+                </select></label>
+                <label>Book<select name="bookVisibility">
+                  ${visibilityOptions(document.bookVisibility)}
+                </select></label>
+                <label>Page<select name="visibility">
+                  ${visibilityOptions(document.visibility)}
+                </select></label>
+              </div>
+            </details>
+            <button class="button button-primary" type="submit">Save</button>
           </div>
         </header>
         ${
       error ? `<div class="alert editor-alert">${escapeHtml(error)}</div>` : ""
     }
-        <div class="editor-grid">
-          <section class="editor-pane">
+        <div class="visual-editor-canvas">
+          <section class="editor-page">
             <input class="title-input" name="title" value="${
       escapeHtml(document.title)
     }"
               aria-label="Page title" required>
-            <div class="format-toolbar" role="toolbar" aria-label="Text formatting">
-              <button type="button" data-format="heading" title="Heading"
-                aria-label="Add heading">H₂</button>
-              <button type="button" data-format="bold" title="Bold"
-                aria-label="Bold"><strong>B</strong></button>
-              <button type="button" data-format="italic" title="Italic"
-                aria-label="Italic"><em>I</em></button>
+            <div class="format-toolbar floating-format-toolbar" role="toolbar"
+              aria-label="Text formatting">
+              <select data-block-format aria-label="Text style">
+                <option value="p">Text</option>
+                <option value="h2">Heading 2</option>
+                <option value="h3">Heading 3</option>
+              </select>
               <span></span>
-              <button type="button" data-format="link" title="Link"
+              <button type="button" data-command="bold" title="Bold"
+                aria-label="Bold"><strong>B</strong></button>
+              <button type="button" data-command="italic" title="Italic"
+                aria-label="Italic"><em>I</em></button>
+              <button type="button" data-command="createLink" title="Link"
                 aria-label="Add link">↗</button>
-              <button type="button" data-format="bullet" title="Bulleted list"
+              <span></span>
+              <button type="button" data-command="insertUnorderedList" title="Bulleted list"
                 aria-label="Add bulleted list">☷</button>
-              <button type="button" data-format="quote" title="Quote"
+              <button type="button" data-block="blockquote" title="Quote"
                 aria-label="Add quote">❞</button>
-              <button type="button" data-format="code" title="Code"
-                aria-label="Add code block">&lt;/&gt;</button>
-              <button type="button" data-format="table" title="Table"
+              <button type="button" data-insert-table title="Table"
                 aria-label="Add table">▦</button>
+              <span></span>
+              <button type="button" data-upload-trigger title="Upload image or file"
+                aria-label="Upload image or file">＋</button>
+              <input data-upload-input type="file" hidden
+                accept="image/png,image/jpeg,image/gif,image/webp,application/pdf,text/plain">
             </div>
-            <textarea name="body" aria-label="Markdown" spellcheck="true"
-              required>${escapeHtml(document.body)}</textarea>
-          </section>
-          <section class="preview-pane" aria-label="Preview">
-            <div class="preview-label">Preview · Steno</div>
-            <article class="document document-preview" data-preview>
+            <div class="visual-content rendered-markdown" contenteditable="true"
+              data-visual-content aria-label="Page content" spellcheck="true">
               ${renderMarkdown(document.body)}
-            </article>
+            </div>
+            <textarea name="body" data-markdown-source hidden required>${
+      escapeHtml(document.body)
+    }</textarea>
+            <p class="editor-hint">Select text to format · paste or upload images anywhere</p>
           </section>
         </div>
       </form>`
     : `<header class="topbar">
+        <a class="global-search" href="/search">
+          <span>⌕</span><span>Search everything</span><kbd>⌘ K</kbd>
+        </a>
         <div class="breadcrumbs">
           <span>${escapeHtml(document.bookTitle)}</span><span>/</span>
           <strong>${escapeHtml(document.title)}</strong>
@@ -103,30 +101,28 @@ export function renderEditor(
             <span class="visibility-dot visibility-${document.visibility}"></span>
             ${escapeHtml(document.visibility)}
           </span>
-          <a class="button button-secondary" href="/pages/${document.id}/edit">Edit page</a>
-          <a class="button button-secondary"
-            href="/pages/${document.id}/revisions">History</a>
-          <form method="post" action="/pages/${document.id}/share">
-            <button class="button button-secondary">Share link</button>
-          </form>
-          <form method="post" action="/pages/${document.id}/share/revoke">
-            <button class="button button-secondary">Revoke links</button>
-          </form>
-          ${
+          <a class="button button-secondary" href="/pages/${document.id}/edit">Edit</a>
+          <details class="page-menu"><summary class="icon-button">•••</summary>
+            <div class="page-menu-popover">
+              <a href="/pages/${document.id}/revisions">History</a>
+              <a href="/pages/${document.id}/assets">Files</a>
+              <form method="post" action="/pages/${document.id}/share">
+                <button>Copy share link</button>
+              </form>
+              <form method="post" action="/pages/${document.id}/share/revoke">
+                <button>Revoke share links</button>
+              </form>
+              ${
       isPublic(document)
-        ? `<a class="button button-secondary" target="_blank"
-              href="/s/${escapeHtml(document.workspaceSlug)}/${
+        ? `<a target="_blank" href="/s/${escapeHtml(document.workspaceSlug)}/${
           escapeHtml(document.bookSlug)
         }/${escapeHtml(document.slug)}">View public page</a>`
         : ""
     }
+            </div>
+          </details>
         </div>
       </header>
-      <div class="upload-bar">
-        <span>Images and attachments</span>
-        <a class="button button-secondary"
-          href="/pages/${document.id}/assets">Manage files</a>
-      </div>
       <article class="document">
         ${renderMarkdown(document.body)}
         <p class="updated-at">Last updated ${escapeHtml(document.updatedAt)}</p>
@@ -134,40 +130,100 @@ export function renderEditor(
 
   return page(
     `${document.title} · Atrium`,
-    `<div class="app-shell">
-      <aside class="sidebar">
-        <header class="sidebar-header">
-          <a class="wordmark" href="/">
-            <span class="brand-mark brand-mark-small">A</span><span>Atrium</span>
-          </a>
-          <a class="icon-button" href="/search" aria-label="Search">⌕</a>
-        </header>
-        <div class="workspace-switcher">
-          <span class="workspace-avatar">${
-      escapeHtml(workspace.name.charAt(0))
-    }</span>
-          <span><strong>${escapeHtml(workspace.name)}</strong>
-            <small>${escapeHtml(workspace.role)}</small></span>
-        </div>
-        <nav class="sidebar-nav" aria-label="Knowledge navigation">
-          <div class="nav-label">
-            <span>Library</span>
-            <form method="post" action="/books" class="inline-create">
-              <button aria-label="New book">＋</button>
-            </form>
-          </div>
-          ${navigation}
-        </nav>
-        <footer class="sidebar-footer">
-          <div class="user-avatar">${escapeHtml(user.name.charAt(0))}</div>
-          <div class="user-details"><strong>${escapeHtml(user.name)}</strong>
-            <span>${escapeHtml(user.email)}</span></div>
-        </footer>
-      </aside>
-      <main class="content-shell">${main}</main>
+    `<div class="atrium-shell">
+      ${bookRail(user, workspace, document.bookId)}
+      ${documentPanel(workspace, document.bookId, document.id)}
+      <main class="workspace-canvas">${main}</main>
     </div>`,
     "app-body",
   );
+}
+
+function bookRail(
+  user: User,
+  workspace: WorkspaceOverview,
+  activeBookId: number,
+): string {
+  const books = workspace.books.map((book, index) => {
+    const href = book.pages[0] ? `/pages/${book.pages[0].id}` : "/";
+    const initials = book.title.trim().split(/\s+/).slice(0, 2)
+      .map((word) => word.charAt(0)).join("").toUpperCase();
+    return `<a class="book-tile ${
+      book.id === activeBookId ? "book-tile-active" : ""
+    } book-tone-${index % 5}"
+      href="${href}" title="${escapeHtml(book.title)}"
+      aria-label="${escapeHtml(book.title)}">
+      <span>${escapeHtml(initials || "B")}</span>
+      <small>${book.pages.length}</small>
+    </a>`;
+  }).join("");
+
+  const activeBook = workspace.books.find((book) => book.id === activeBookId);
+  return `<aside class="book-rail">
+    <a class="rail-brand" href="/" aria-label="Atrium home">A</a>
+    <nav class="book-stack" aria-label="Books">${books}</nav>
+    ${
+    activeBook
+      ? `<form method="post" action="/pages" class="rail-create">
+          <input type="hidden" name="bookId" value="${activeBook.id}">
+          <input type="hidden" name="visibility" value="${activeBook.visibility}">
+          <button aria-label="New page in ${escapeHtml(activeBook.title)}"
+            title="New page">＋</button>
+        </form>`
+      : ""
+  }
+    <details class="rail-account">
+      <summary aria-label="Account menu" title="${escapeHtml(user.name)}">
+        ${escapeHtml(user.name.charAt(0))}
+      </summary>
+      <div class="rail-account-menu">
+        <strong>${escapeHtml(user.name)}</strong>
+        <span>${escapeHtml(user.email)}</span>
+        <a href="/settings/members">Workspace settings</a>
+        <a href="/account/security">Account security</a>
+        <form method="post" action="/logout"><button>Sign out</button></form>
+      </div>
+    </details>
+  </aside>`;
+}
+
+function documentPanel(
+  workspace: WorkspaceOverview,
+  activeBookId: number,
+  activePageId: number,
+): string {
+  const book = workspace.books.find((item) => item.id === activeBookId);
+  if (!book) return `<aside class="document-panel"></aside>`;
+  return `<aside class="document-panel">
+    <header>
+      <form method="post" action="/books/${book.id}" class="book-title-form"
+        data-book-title-form>
+        <span class="visibility-dot visibility-${book.visibility}"></span>
+        <input name="title" value="${escapeHtml(book.title)}"
+          aria-label="Rename ${
+    escapeHtml(book.title)
+  }" maxlength="120" required>
+        <input type="hidden" name="returnTo" value="${activePageId}">
+        <button aria-label="Save book name" title="Save name">✓</button>
+      </form>
+      <form method="post" action="/pages">
+        <input type="hidden" name="bookId" value="${book.id}">
+        <input type="hidden" name="visibility" value="${book.visibility}">
+        <button aria-label="New page in ${escapeHtml(book.title)}"
+          title="New page">＋</button>
+      </form>
+    </header>
+    <nav aria-label="${escapeHtml(book.title)} pages">
+      ${
+    book.pages.map((item) =>
+      `<a class="${item.id === activePageId ? "document-link-active" : ""}"
+          href="/pages/${item.id}">
+        <span>⌞</span>${escapeHtml(item.title)}
+      </a>`
+    ).join("")
+  }
+    </nav>
+  </aside>`;
 }
 
 function isPublic(document: PageDetail): boolean {

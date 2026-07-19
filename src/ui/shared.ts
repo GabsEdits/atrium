@@ -6,10 +6,25 @@ export function page(title: string, body: string, bodyClass = ""): string {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <title>${escapeHtml(title)}</title>
-    <link rel="stylesheet" href="/assets/app.css?v=2">
-    <script src="/assets/app.js?v=1" defer></script>
+    <link rel="stylesheet" href="/assets/app.css?v=7">
+    <script src="/assets/app.js?v=8" defer></script>
   </head>
-  <body class="${escapeHtml(bodyClass)}">${body}</body>
+  <body class="${escapeHtml(bodyClass)}">${body}
+    <dialog class="search-dialog" data-search-dialog aria-labelledby="search-dialog-title">
+      <div class="search-dialog-shell">
+        <header>
+          <span>⌕</span>
+          <input type="search" data-search-input placeholder="Search pages…"
+            aria-label="Search pages" autocomplete="off">
+          <kbd>esc</kbd>
+        </header>
+        <div class="search-dialog-results" data-search-results>
+          <p id="search-dialog-title">Type to search every page you can access.</p>
+        </div>
+        <footer><span>↑↓ navigate</span><span>↵ open</span></footer>
+      </div>
+    </dialog>
+  </body>
 </html>`;
 }
 

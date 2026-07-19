@@ -294,6 +294,21 @@ export class AtriumStore {
     return Number(result.lastInsertRowid);
   }
 
+  renameBook(userId: number, bookId: number, title: string): void {
+    const book = this.#database.prepare(
+      "SELECT workspace_id FROM books WHERE id = ?",
+    ).get(bookId) as Record<string, unknown> | undefined;
+    if (!book) throw new Error("Book not found.");
+    this.#assertCanEdit(userId, Number(book.workspace_id));
+    const normalizedTitle = title.trim();
+    if (!normalizedTitle || normalizedTitle.length > 120) {
+      throw new Error("Book names must be between 1 and 120 characters.");
+    }
+    this.#database.prepare(
+      "UPDATE books SET title = ? WHERE id = ?",
+    ).run(normalizedTitle, bookId);
+  }
+
   createPage(
     userId: number,
     bookId: number,

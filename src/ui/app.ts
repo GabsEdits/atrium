@@ -2,91 +2,37 @@ import type { User, WorkspaceOverview } from "../store.ts";
 import { escapeHtml, page } from "./shared.ts";
 
 export function renderApp(user: User, workspace: WorkspaceOverview): string {
-  const books = workspace.books.map((book) => `
-    <section class="nav-group">
-      <div class="nav-group-heading">
-        <span>${escapeHtml(book.title)}</span>
-        <span class="visibility-dot visibility-${book.visibility}"
-          title="${book.visibility}"></span>
-      </div>
-      ${
-    book.pages.map((item, index) => `
-        <a class="page-link ${index === 0 ? "page-link-active" : ""}"
-          href="/pages/${item.id}">
-          <span class="page-icon">⌞</span>
-          ${escapeHtml(item.title)}
-        </a>`).join("")
-  }
-    </section>`).join("");
-
   const activeBook = workspace.books[0];
   const activePage = activeBook?.pages[0];
 
   return page(
     `${workspace.name} · Atrium`,
-    `<div class="app-shell">
-      <aside class="sidebar">
-        <header class="sidebar-header">
-          <a class="wordmark" href="/">
-            <span class="brand-mark brand-mark-small">A</span>
-            <span>Atrium</span>
-          </a>
-          <a class="icon-button" href="/search" aria-label="Search">⌕</a>
-        </header>
-        <button class="workspace-switcher">
-          <span class="workspace-avatar">${
-      escapeHtml(workspace.name.charAt(0))
-    }</span>
-          <span>
-            <strong>${escapeHtml(workspace.name)}</strong>
-            <small>${escapeHtml(workspace.role)}</small>
-          </span>
-          <span class="chevron">⌄</span>
-        </button>
-        <nav class="sidebar-nav" aria-label="Knowledge navigation">
-          <a class="nav-item nav-item-active" href="/">
-            <span>⌂</span> Home
-          </a>
-          <a class="nav-item" href="/recent"><span>◷</span> Recent</a>
-          <div class="nav-separator"></div>
-          <div class="nav-label">
-            <span>Library</span>
-            <form method="post" action="/books" class="inline-create">
-              <button aria-label="New book">＋</button>
-            </form>
-          </div>
-          ${books}
-        </nav>
-        <footer class="sidebar-footer">
-          <div class="user-avatar">${escapeHtml(user.name.charAt(0))}</div>
-          <div class="user-details">
-            <strong>${escapeHtml(user.name)}</strong>
-            <span>${escapeHtml(user.email)}</span>
-          </div>
-          <form method="post" action="/logout">
-            <button class="icon-button" aria-label="Sign out" title="Sign out">↗</button>
-          </form>
-          <a class="icon-button" href="/settings/members"
-            aria-label="Workspace settings" title="Workspace settings">⚙</a>
-          <a class="icon-button" href="/account/security"
-            aria-label="Account security" title="Account security">⌾</a>
-        </footer>
-      </aside>
-      <main class="content-shell">
-        <header class="topbar">
+    `<div class="atrium-shell">
+      ${bookRail(user, workspace, activeBook?.id)}
+      ${documentPanel(workspace, activeBook?.id, activePage?.id)}
+      <main class="workspace-canvas">
+        <header class="workspace-bar">
           <div class="breadcrumbs">
             <span>${escapeHtml(activeBook?.title ?? "Library")}</span>
             <span>/</span>
             <strong>${escapeHtml(activePage?.title ?? "Welcome")}</strong>
           </div>
+          <a class="global-search" href="/search">
+            <span>⌕</span><span>Search everything</span><kbd>⌘ K</kbd>
+          </a>
           <div class="topbar-actions">
             <span class="visibility-badge">
               <span class="visibility-dot visibility-${workspace.visibility}"></span>
               ${escapeHtml(workspace.visibility)}
             </span>
-            <a class="button button-secondary"
-              href="/pages/${activePage?.id ?? 1}/edit">Edit page</a>
-            <button class="icon-button">•••</button>
+            ${
+      activePage
+        ? `<a class="button button-secondary compact-button"
+              href="/pages/${activePage.id}/edit">Edit</a>`
+        : ""
+    }
+            <a class="icon-button" href="/settings/members"
+              aria-label="Workspace settings">•••</a>
           </div>
         </header>
         <article class="document">
@@ -117,4 +63,83 @@ export function renderApp(user: User, workspace: WorkspaceOverview): string {
     </div>`,
     "app-body",
   );
+}
+
+function bookRail(
+  user: User,
+  workspace: WorkspaceOverview,
+  activeBookId?: number,
+): string {
+  const books = workspace.books.map((book, index) => {
+    const href = book.pages[0] ? `/pages/${book.pages[0].id}` : "/";
+    const initials = book.title.trim().split(/\s+/).slice(0, 2)
+      .map((word) => word.charAt(0)).join("").toUpperCase();
+    return `<a class="book-tile ${
+      book.id === activeBookId ? "book-tile-active" : ""
+    } book-tone-${index % 5}"
+      href="${href}" title="${escapeHtml(book.title)}"
+      aria-label="${escapeHtml(book.title)}">
+      <span>${escapeHtml(initials || "B")}</span>
+      <small>${book.pages.length}</small>
+    </a>`;
+  }).join("");
+
+  return `<aside class="book-rail">
+    <a class="rail-brand" href="/" aria-label="Atrium home">A</a>
+    <nav class="book-stack" aria-label="Books">${books}</nav>
+    <form method="post" action="/books" class="rail-create">
+      <button aria-label="Create book" title="Create book">＋</button>
+    </form>
+    <details class="rail-account">
+      <summary aria-label="Account menu" title="${escapeHtml(user.name)}">
+        ${escapeHtml(user.name.charAt(0))}
+      </summary>
+      <div class="rail-account-menu">
+        <strong>${escapeHtml(user.name)}</strong>
+        <span>${escapeHtml(user.email)}</span>
+        <a href="/settings/members">Workspace settings</a>
+        <a href="/account/security">Account security</a>
+        <form method="post" action="/logout"><button>Sign out</button></form>
+      </div>
+    </details>
+  </aside>`;
+}
+
+function documentPanel(
+  workspace: WorkspaceOverview,
+  activeBookId?: number,
+  activePageId?: number,
+): string {
+  const book = workspace.books.find((item) => item.id === activeBookId);
+  if (!book) return `<aside class="document-panel"></aside>`;
+  return `<aside class="document-panel">
+    <header>
+      <form method="post" action="/books/${book.id}" class="book-title-form"
+        data-book-title-form>
+        <span class="visibility-dot visibility-${book.visibility}"></span>
+        <input name="title" value="${escapeHtml(book.title)}"
+          aria-label="Rename ${
+    escapeHtml(book.title)
+  }" maxlength="120" required>
+        <input type="hidden" name="returnTo" value="${activePageId ?? ""}">
+        <button aria-label="Save book name" title="Save name">✓</button>
+      </form>
+      <form method="post" action="/pages">
+        <input type="hidden" name="bookId" value="${book.id}">
+        <input type="hidden" name="visibility" value="${book.visibility}">
+        <button aria-label="New page in ${escapeHtml(book.title)}"
+          title="New page">＋</button>
+      </form>
+    </header>
+    <nav aria-label="${escapeHtml(book.title)} pages">
+      ${
+    book.pages.map((item) =>
+      `<a class="${item.id === activePageId ? "document-link-active" : ""}"
+          href="/pages/${item.id}">
+        <span>⌞</span>${escapeHtml(item.title)}
+      </a>`
+    ).join("")
+  }
+    </nav>
+  </aside>`;
 }

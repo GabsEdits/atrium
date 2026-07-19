@@ -99,6 +99,24 @@ Deno.test("owner can edit a page and each save creates a revision", async () => 
   assertEquals(store.revisionCount(page.id), 1);
 });
 
+Deno.test("book renames preserve the stable public slug", () => {
+  using store = testStore();
+  const owner = store.setupOwner({
+    name: "Ada Lovelace",
+    workspace: "Analytical Engine",
+    email: "ada@example.com",
+    passwordHash: "test-only",
+  });
+  const before = store.getWorkspaceOverview(owner.id).books[0];
+
+  store.renameBook(owner.id, before.id, "Operations handbook");
+
+  const after = store.getWorkspaceOverview(owner.id).books[0];
+  assertEquals(after.title, "Operations handbook");
+  const page = store.getPageForUser(after.pages[0].id, owner.id);
+  assertEquals(page?.bookSlug, "welcome");
+});
+
 Deno.test("Markdown preview is rendered through the Steno template core", () => {
   const output = renderMarkdown("# Hello\n\nThis is **Atrium**.");
 
