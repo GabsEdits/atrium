@@ -11,18 +11,19 @@ Run one Atrium process behind an HTTPS reverse proxy and persist the complete
 - `ATRIUM_BASE_URL` to the externally visible HTTPS origin.
 - `ATRIUM_SECURE_COOKIES=true`.
 - `ATRIUM_DATA_DIR` to a persistent volume.
-- `ATRIUM_RESEND_API_KEY` and `ATRIUM_MAIL_FROM` for password recovery email.
+- `ATRIUM_RESEND_API_KEY` and `ATRIUM_MAIL_FROM` for invitation and password
+  recovery email.
 
 ## Single sign-on
 
 Set the OIDC issuer, client ID, and client secret together. Register
 `https://your-atrium.example/auth/oidc/callback` as the exact redirect URI.
-Atrium discovers provider endpoints, uses authorization code flow with PKCE
-S256 and state validation, and requests `openid email profile`.
+Atrium discovers provider endpoints, uses authorization code flow with PKCE S256
+and state validation, and requests `openid email profile`.
 
 By default, SSO signs in only existing Atrium email addresses. Set
-`ATRIUM_OIDC_AUTO_PROVISION=true` to allow verified-email identities to join
-the first workspace as readers. Keep this disabled for invite-only systems.
+`ATRIUM_OIDC_AUTO_PROVISION=true` to allow verified-email identities to join the
+first workspace as readers. Keep this disabled for invite-only systems.
 
 Do not expose the SQLite database, asset directory, backups, or application
 stdout publicly. Recovery links are logged only when email delivery is not
@@ -35,13 +36,13 @@ Dokploy. The included named volume mounts at `/data`, which is the recommended
 Dokploy option for databases and enables Dokploy volume backups.
 
 The container starts briefly as root only to repair ownership on `/data`, then
-drops to the image's unprivileged `deno` user before launching Atrium. This
-also repairs volumes created by an earlier image where `/data` was root-owned.
+drops to the image's unprivileged `deno` user before launching Atrium. This also
+repairs volumes created by an earlier image where `/data` was root-owned.
 
 If deploying Atrium as a single Dokploy Application instead of Compose, add a
-Volume Mount with container path `/data`. Do not use an absolute host bind
-path. Set the same environment variables shown in `.env.example`, then rebuild
-the image rather than only restarting the old container.
+Volume Mount with container path `/data`. Do not use an absolute host bind path.
+Set the same environment variables shown in `.env.example`, then rebuild the
+image rather than only restarting the old container.
 
 ## Backups
 

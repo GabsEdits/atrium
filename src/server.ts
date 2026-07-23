@@ -1,6 +1,6 @@
 import type { AtriumOptions } from "./types.ts";
 import { type AtriumConfig, loadConfig } from "./config.ts";
-import { sendPasswordReset } from "./mail.ts";
+import { sendInvitation, sendPasswordReset } from "./mail.ts";
 import { createOidcAuthorization, exchangeOidcCode } from "./oidc.ts";
 import { AtriumStore } from "./store.ts";
 import {
@@ -426,9 +426,22 @@ export async function handleRequest(
       const members = store.listMembers(user.id, workspace.id);
       const inviteToken = url.searchParams.get("invite");
       const inviteUrl = inviteToken
-        ? `${url.origin}/invite/${inviteToken}`
+        ? `${runtime.baseUrl}/invite/${inviteToken}`
         : undefined;
-      return html(renderMembers(user, workspace, members, inviteUrl));
+      const delivery = url.searchParams.get("delivery");
+      const deliveryError = delivery === "failed"
+        ? "The invitation was created, but its email could not be delivered. Copy and send the link below."
+        : undefined;
+      return html(
+        renderMembers(
+          user,
+          workspace,
+          members,
+          inviteUrl,
+          deliveryError,
+          delivery === "sent",
+        ),
+      );
     } catch {
       return new Response("Forbidden", { status: 403 });
     }
@@ -521,7 +534,29 @@ export async function handleRequest(
         email,
         role,
       );
-      return redirect(`/settings/members?invite=${encodeURIComponent(token)}`);
+      const inviteUrl = `${runtime.baseUrl}/invite/${token}`;
+      let delivery = "not-configured";
+      try {
+        if (
+          await sendInvitation(
+            runtime,
+            email,
+            workspace.name,
+            role,
+            inviteUrl,
+          )
+        ) {
+          delivery = "sent";
+        }
+      } catch (error) {
+        console.error("Atrium invitation email failed:", error);
+        delivery = "failed";
+      }
+      return redirect(
+        `/settings/members?invite=${
+          encodeURIComponent(token)
+        }&delivery=${delivery}`,
+      );
     } catch {
       return new Response("Forbidden", { status: 403 });
     }

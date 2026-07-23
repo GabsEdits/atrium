@@ -14,6 +14,7 @@ export function renderMembers(
   members: Member[],
   inviteUrl?: string,
   error?: string,
+  inviteDelivered = false,
 ): string {
   return page(
     `Members · ${workspace.name}`,
@@ -29,8 +30,14 @@ export function renderMembers(
         ${error ? `<div class="alert">${escapeHtml(error)}</div>` : ""}
         ${
         inviteUrl
-          ? `<div class="success-card"><strong>Invitation ready</strong>
-              <p>Send this private link to the invited person. It expires in 7 days.</p>
+          ? `<div class="success-card"><strong>${
+            inviteDelivered ? "Invitation emailed" : "Invitation ready"
+          }</strong>
+              <p>${
+            inviteDelivered
+              ? "The email was sent. You can also copy this private link."
+              : "Send this private link to the invited person. It expires in 7 days."
+          }</p>
               <input readonly value="${
             escapeHtml(inviteUrl)
           }" aria-label="Invitation link"></div>`
