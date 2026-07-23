@@ -74,3 +74,33 @@ export function renderAuth(
     "auth-body",
   );
 }
+
+export function renderNoWorkspace(name: string): string {
+  return page(
+    "No workspace access · Atrium",
+    `<div class="auth-shell">
+      <a class="wordmark" href="/" aria-label="Atrium home">
+        <span class="brand-mark brand-mark-small">A</span>
+        <span>Atrium</span>
+      </a>
+      <main class="auth-card">
+        <div class="auth-heading">
+          <p class="eyebrow">Workspace access</p>
+          <h1>No workspace is assigned.</h1>
+          <p>${
+      escapeHtml(name)
+    }, your account is signed in, but it is not a member
+            of a workspace. Ask a workspace owner for an invitation, then open
+            its link in this browser.</p>
+        </div>
+        <form method="post" action="/logout">
+          <button class="button button-secondary button-full" type="submit">
+            Sign out
+          </button>
+        </form>
+      </main>
+      <p class="auth-footer">Atrium · Powered by Steno</p>
+    </div>`,
+    "auth-body",
+  );
+}

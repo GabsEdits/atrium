@@ -195,7 +195,7 @@ export class AtriumStore {
     );
   }
 
-  getWorkspaceOverview(userId: number): WorkspaceOverview {
+  findWorkspaceOverview(userId: number): WorkspaceOverview | null {
     const workspace = this.#database.prepare(
       `SELECT workspaces.id, workspaces.name, workspaces.visibility, memberships.role
        FROM workspaces
@@ -205,7 +205,7 @@ export class AtriumStore {
        LIMIT 1`,
     ).get(userId) as Record<string, unknown> | undefined;
 
-    if (!workspace) throw new Error("User has no workspace.");
+    if (!workspace) return null;
     const workspaceId = Number(workspace.id);
     const books = this.#database.prepare(
       "SELECT id, title, visibility, color, icon FROM books WHERE workspace_id = ? ORDER BY position, id",
@@ -233,6 +233,12 @@ export class AtriumStore {
         })),
       })),
     };
+  }
+
+  getWorkspaceOverview(userId: number): WorkspaceOverview {
+    const workspace = this.findWorkspaceOverview(userId);
+    if (!workspace) throw new Error("User has no workspace.");
+    return workspace;
   }
 
   getPageForUser(pageId: number, userId: number): PageDetail | null {
@@ -521,6 +527,7 @@ export class AtriumStore {
       this.#database.prepare(
         "INSERT INTO memberships (user_id, workspace_id, role) VALUES (?, ?, ?)",
       ).run(userId, invitation.workspaceId, invitation.role);
+      this.#assertMember(userId, invitation.workspaceId);
       this.#database.prepare(
         "UPDATE invitations SET accepted_at = CURRENT_TIMESTAMP WHERE token_hash = ?",
       ).run(tokenHash);
@@ -558,6 +565,7 @@ export class AtriumStore {
          VALUES (?, ?, ?)
          ON CONFLICT(user_id, workspace_id) DO UPDATE SET role = excluded.role`,
       ).run(userId, invitation.workspaceId, invitation.role);
+      this.#assertMember(userId, invitation.workspaceId);
       this.#database.prepare(
         "UPDATE invitations SET accepted_at = CURRENT_TIMESTAMP WHERE token_hash = ?",
       ).run(tokenHash);

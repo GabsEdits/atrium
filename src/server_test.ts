@@ -77,6 +77,74 @@ Deno.test("unknown routes return 404", async () => {
   assertEquals(response.status, 404);
 });
 
+Deno.test("signed-in users without workspace access get a recoverable page", async () => {
+  using store = testStore();
+  const owner = setupTestOwner(store);
+  const workspace = store.getWorkspaceOverview(owner.id);
+  const invitation = await store.createInvitation(
+    owner.id,
+    workspace.id,
+    "grace@example.com",
+    "reader",
+  );
+  const replacementOwner = await store.acceptInvitation(invitation, {
+    name: "Grace Hopper",
+    passwordHash: "test-only",
+  });
+  store.updateMemberRole(owner.id, workspace.id, replacementOwner.id, "owner");
+  const session = await store.createSession(owner.id);
+  store.removeMember(replacementOwner.id, workspace.id, owner.id);
+
+  const response = await handleRequest(
+    new Request("http://atrium.test/", {
+      headers: { cookie: `atrium_session=${session}` },
+    }),
+    store,
+  );
+
+  assertEquals(response.status, 200);
+  assertMatch(await response.text(), /No workspace is assigned/);
+});
+
+Deno.test("accepting an invitation creates an account with workspace access", async () => {
+  using store = testStore();
+  const owner = setupTestOwner(store);
+  const workspace = store.getWorkspaceOverview(owner.id);
+  const invitation = await store.createInvitation(
+    owner.id,
+    workspace.id,
+    "invited@example.com",
+    "editor",
+  );
+
+  const accepted = await handleRequest(
+    new Request(`http://atrium.test/invite/${invitation}`, {
+      method: "POST",
+      headers: { origin: "http://atrium.test" },
+      body: new URLSearchParams({
+        name: "Invited Editor",
+        password: "a-secure-password",
+      }),
+    }),
+    store,
+  );
+
+  assertEquals(accepted.status, 303);
+  assertEquals(accepted.headers.get("location"), "/");
+  const cookie = accepted.headers.get("set-cookie")?.split(";")[0];
+  const home = await handleRequest(
+    new Request("http://atrium.test/", {
+      headers: { cookie: cookie ?? "" },
+    }),
+    store,
+  );
+
+  assertEquals(home.status, 200);
+  assertMatch(await home.text(), /Analytical Engine/);
+  const invited = store.findUserByEmail("invited@example.com");
+  assertEquals(store.getWorkspaceOverview(invited!.id).role, "editor");
+});
+
 Deno.test("owner can edit a page and each save creates a revision", async () => {
   using store = testStore();
   const owner = store.setupOwner({

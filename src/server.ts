@@ -13,7 +13,7 @@ import {
   verifyTotpCode,
 } from "./auth.ts";
 import { renderApp } from "./ui/app.ts";
-import { renderAuth } from "./ui/auth.ts";
+import { renderAuth, renderNoWorkspace } from "./ui/auth.ts";
 import { renderEditor } from "./ui/editor.ts";
 import { styles } from "./ui/styles.ts";
 import { clientScript } from "./ui/client.ts";
@@ -230,7 +230,10 @@ export async function handleRequest(
 
     const user = await currentUser(request, store);
     if (!user) return redirect("/login");
-    return html(renderApp(user, store.getWorkspaceOverview(user.id)));
+    const workspace = store.findWorkspaceOverview(user.id);
+    return html(
+      workspace ? renderApp(user, workspace) : renderNoWorkspace(user.name),
+    );
   }
 
   if (url.pathname === "/setup") {
