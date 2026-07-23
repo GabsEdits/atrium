@@ -4,6 +4,8 @@ export function renderAuth(
   mode: "setup" | "login",
   error?: string,
   oidcEnabled = false,
+  returnTo = "",
+  email = "",
 ): string {
   const setup = mode === "setup";
   return page(
@@ -28,6 +30,13 @@ export function renderAuth(
     }
         <form method="post" action="/${mode}" class="form-stack">
           ${
+      !setup && returnTo
+        ? `<input type="hidden" name="returnTo" value="${
+          escapeHtml(returnTo)
+        }">`
+        : ""
+    }
+          ${
       setup
         ? `<label>
               <span>Your name</span>
@@ -41,7 +50,8 @@ export function renderAuth(
     }
           <label>
             <span>Email</span>
-            <input name="email" type="email" autocomplete="email" required
+            <input name="email" type="email" autocomplete="email"
+              value="${escapeHtml(email)}" required
               ${setup ? "" : "autofocus"}>
           </label>
           <label>

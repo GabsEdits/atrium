@@ -173,6 +173,14 @@ export async function handleRequest(
       ) {
         return html(renderExistingInvitation(inviteMatch[1], invitation));
       }
+      if (store.findUserByEmail(invitation.email)) {
+        const returnTo = `/invite/${inviteMatch[1]}`;
+        return redirect(
+          `/login?returnTo=${encodeURIComponent(returnTo)}&email=${
+            encodeURIComponent(invitation.email)
+          }`,
+        );
+      }
       return html(renderInvitation(inviteMatch[1], invitation));
     }
     if (request.method === "POST") {
@@ -250,7 +258,15 @@ export async function handleRequest(
   if (url.pathname === "/login") {
     if (!store.isConfigured()) return redirect("/setup");
     if (request.method === "GET") {
-      return html(renderAuth("login", undefined, Boolean(runtime.oidc)));
+      return html(
+        renderAuth(
+          "login",
+          undefined,
+          Boolean(runtime.oidc),
+          safeReturnTo(url.searchParams.get("returnTo")),
+          url.searchParams.get("email") ?? "",
+        ),
+      );
     }
     if (request.method === "POST") {
       if (!isSameOrigin(request)) {
@@ -330,6 +346,7 @@ export async function handleRequest(
     }
     const form = await request.formData();
     const challenge = String(form.get("challenge") ?? "");
+    const returnTo = safeReturnTo(String(form.get("returnTo") ?? ""));
     const code = String(form.get("code") ?? "").trim();
     const user = await store.getMfaChallenge(challenge);
     const validCode = user?.mfaSecret
@@ -342,13 +359,17 @@ export async function handleRequest(
     ) {
       await store.recordMfaFailure(challenge);
       return html(
-        renderMfaChallenge(challenge, "The authentication code is incorrect."),
+        renderMfaChallenge(
+          challenge,
+          "The authentication code is incorrect.",
+          returnTo,
+        ),
         401,
       );
     }
     await store.getMfaChallenge(challenge, true);
     const token = await store.createSession(user.id);
-    return redirect("/", {
+    return redirect(returnTo || "/", {
       "set-cookie": createSessionCookie(token, runtime.secureCookies),
     });
   }
@@ -1035,6 +1056,7 @@ async function login(
   const form = await request.formData();
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
+  const returnTo = safeReturnTo(String(form.get("returnTo") ?? ""));
   const user = store.findUserByEmail(email);
   const passwordMatches = await verifyPassword(
     password,
@@ -1048,6 +1070,8 @@ async function login(
         "login",
         "Email or password is incorrect.",
         oidcEnabled,
+        returnTo,
+        email,
       ),
       401,
     );
@@ -1055,11 +1079,17 @@ async function login(
   store.clearLoginFailures(email);
 
   if (user.mfaEnabled && user.mfaSecret) {
-    return html(renderMfaChallenge(await store.createMfaChallenge(user.id)));
+    return html(
+      renderMfaChallenge(
+        await store.createMfaChallenge(user.id),
+        undefined,
+        returnTo,
+      ),
+    );
   }
 
   const token = await store.createSession(user.id);
-  return redirect("/", {
+  return redirect(returnTo || "/", {
     "set-cookie": createSessionCookie(token, secureCookies),
   });
 }
@@ -1080,6 +1110,18 @@ function parseVisibility(value: FormDataEntryValue | null) {
   return value === "public" || value === "unlisted" || value === "private"
     ? value
     : null;
+}
+
+function safeReturnTo(value: string | null): string {
+  if (!value || !value.startsWith("/") || value.startsWith("//")) return "";
+  try {
+    const parsed = new URL(value, "http://atrium.local");
+    return parsed.origin === "http://atrium.local"
+      ? `${parsed.pathname}${parsed.search}${parsed.hash}`
+      : "";
+  } catch {
+    return "";
+  }
 }
 
 function html(body: string, status = 200): Response {

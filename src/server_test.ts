@@ -145,6 +145,73 @@ Deno.test("accepting an invitation creates an account with workspace access", as
   assertEquals(store.getWorkspaceOverview(invited!.id).role, "editor");
 });
 
+Deno.test("existing invited accounts sign in and return to accept", async () => {
+  using store = testStore();
+  const owner = setupTestOwner(store);
+  const workspace = store.getWorkspaceOverview(owner.id);
+  const firstInvite = await store.createInvitation(
+    owner.id,
+    workspace.id,
+    "returning@example.com",
+    "reader",
+  );
+  const returning = await store.acceptInvitation(firstInvite, {
+    name: "Returning User",
+    passwordHash: await hashPassword("a-secure-password"),
+  });
+  store.removeMember(owner.id, workspace.id, returning.id);
+  const invitation = await store.createInvitation(
+    owner.id,
+    workspace.id,
+    returning.email,
+    "editor",
+  );
+
+  const invitePage = await handleRequest(
+    new Request(`http://atrium.test/invite/${invitation}`),
+    store,
+  );
+  assertEquals(invitePage.status, 303);
+  assertMatch(
+    invitePage.headers.get("location") ?? "",
+    /^\/login\?returnTo=/,
+  );
+
+  const signedIn = await handleRequest(
+    new Request("http://atrium.test/login", {
+      method: "POST",
+      headers: { origin: "http://atrium.test" },
+      body: new URLSearchParams({
+        email: returning.email,
+        password: "a-secure-password",
+        returnTo: `/invite/${invitation}`,
+      }),
+    }),
+    store,
+  );
+  assertEquals(signedIn.headers.get("location"), `/invite/${invitation}`);
+  const cookie = signedIn.headers.get("set-cookie")?.split(";")[0] ?? "";
+
+  const acceptancePage = await handleRequest(
+    new Request(`http://atrium.test/invite/${invitation}`, {
+      headers: { cookie },
+    }),
+    store,
+  );
+  assertMatch(await acceptancePage.text(), /Accept invitation/);
+
+  const accepted = await handleRequest(
+    new Request(`http://atrium.test/invite/${invitation}`, {
+      method: "POST",
+      headers: { cookie, origin: "http://atrium.test" },
+      body: new URLSearchParams({ acceptExisting: "1" }),
+    }),
+    store,
+  );
+  assertEquals(accepted.headers.get("location"), "/");
+  assertEquals(store.getWorkspaceOverview(returning.id).role, "editor");
+});
+
 Deno.test("owner can edit a page and each save creates a revision", async () => {
   using store = testStore();
   const owner = store.setupOwner({

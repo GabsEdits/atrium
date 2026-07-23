@@ -1,7 +1,11 @@
 import type { User, WorkspaceOverview } from "../store.ts";
 import { escapeHtml, page } from "./shared.ts";
 
-export function renderMfaChallenge(challenge: string, error?: string): string {
+export function renderMfaChallenge(
+  challenge: string,
+  error?: string,
+  returnTo = "",
+): string {
   return page(
     "Two-factor authentication · Atrium",
     authCard(
@@ -9,6 +13,13 @@ export function renderMfaChallenge(challenge: string, error?: string): string {
       "Enter the six-digit code from your authenticator app.",
       `<form method="post" action="/login/mfa" class="form-stack">
         <input type="hidden" name="challenge" value="${escapeHtml(challenge)}">
+        ${
+        returnTo
+          ? `<input type="hidden" name="returnTo" value="${
+            escapeHtml(returnTo)
+          }">`
+          : ""
+      }
         <label><span>Authentication code</span>
           <input name="code" autocomplete="one-time-code" required autofocus>
           <small>Use a six-digit authenticator code or a recovery code.</small></label>
