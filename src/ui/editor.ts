@@ -2,13 +2,14 @@ import type { PageDetail, User, WorkspaceOverview } from "../store.ts";
 import { renderMarkdown } from "../renderer.ts";
 import { escapeHtml, page } from "./shared.ts";
 
-export function renderEditor(
+export async function renderEditor(
   user: User,
   workspace: WorkspaceOverview,
   document: PageDetail,
   editing: boolean,
   error?: string,
-): string {
+): Promise<string> {
+  const renderedBody = await renderMarkdown(document.body);
   const main = editing
     ? `<form method="post" action="/pages/${document.id}" class="editor visual-editor"
         data-visual-editor data-upload-url="/pages/${document.id}/assets">
@@ -80,7 +81,7 @@ export function renderEditor(
             </div>
             <div class="visual-content rendered-markdown" contenteditable="true"
               data-visual-content aria-label="Page content" spellcheck="true">
-              ${renderMarkdown(document.body)}
+              ${renderedBody}
             </div>
             <textarea name="body" data-markdown-source hidden required>${
       escapeHtml(document.body)
@@ -132,7 +133,7 @@ export function renderEditor(
         </div>
       </header>
       <article class="document">
-        ${renderMarkdown(document.body)}
+        ${renderedBody}
         <p class="updated-at">Last updated ${escapeHtml(document.updatedAt)}</p>
       </article>`;
 

@@ -371,6 +371,7 @@ if (editor) {
   const upload = async (file) => {
     if (!file) return;
     const button = editor.querySelector("[data-upload-trigger]");
+    const originalContent = button.innerHTML;
     button.textContent = "…";
     button.disabled = true;
     const data = new FormData();
@@ -394,7 +395,7 @@ if (editor) {
     } catch (error) {
       alert(error.message || "Upload failed");
     } finally {
-      button.textContent = "＋";
+      button.innerHTML = originalContent;
       button.disabled = false;
       uploadInput.value = "";
     }

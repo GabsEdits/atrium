@@ -101,7 +101,7 @@ export async function handleRequest(
       publicMatch[3],
     );
     return document
-      ? html(renderPublicPage(document))
+      ? html(await renderPublicPage(document))
       : new Response("Not found", { status: 404 });
   }
 
@@ -115,7 +115,7 @@ export async function handleRequest(
     if (body.length > 1_000_000) {
       return new Response("Preview is too large", { status: 413 });
     }
-    return new Response(renderMarkdown(body), {
+    return new Response(await renderMarkdown(body), {
       headers: {
         "cache-control": "no-store",
         "content-type": "text/html; charset=utf-8",
@@ -127,7 +127,7 @@ export async function handleRequest(
   if (request.method === "GET" && sharedMatch) {
     const document = await store.getSharedPage(sharedMatch[1]);
     return document
-      ? html(renderPublicPage(document))
+      ? html(await renderPublicPage(document))
       : new Response("Not found", { status: 404 });
   }
 
@@ -838,7 +838,7 @@ export async function handleRequest(
       if (editing && !store.canEditWorkspace(user.id, document.workspaceId)) {
         return new Response("Forbidden", { status: 403 });
       }
-      return html(renderEditor(user, workspace, document, editing));
+      return html(await renderEditor(user, workspace, document, editing));
     }
 
     if (request.method === "POST" && !pageMatch[2]) {
@@ -858,7 +858,7 @@ export async function handleRequest(
         !bookVisibility
       ) {
         return html(
-          renderEditor(
+          await renderEditor(
             user,
             workspace,
             { ...document, title, body },

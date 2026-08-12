@@ -13,7 +13,7 @@
     "test": "deno test -A"
   },
   "imports": {
-    "@steno/steno": "jsr:@steno/steno@^0.7.0",
+    "@steno/steno": "jsr:@steno/steno@^0.11.2",
     "marked": "npm:marked@^16.2.1",
     "sanitize-html": "npm:sanitize-html@^2.17.0"
   },

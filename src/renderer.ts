@@ -4,7 +4,7 @@ import sanitizeHtml from "sanitize-html";
 
 const documentTemplate = `<div class="rendered-markdown">{@html content}</div>`;
 
-export function renderMarkdown(markdown: string): string {
+export async function renderMarkdown(markdown: string): Promise<string> {
   const parsed = marked.parse(markdown, {
     async: false,
     gfm: true,
@@ -46,7 +46,7 @@ export function renderMarkdown(markdown: string): string {
     allowedSchemes: ["http", "https", "mailto"],
   });
 
-  return render({
+  return await render({
     template: documentTemplate,
     context: { content },
     components: {},

@@ -335,16 +335,16 @@ Deno.test("deleting a book removes all of its pages and assets", () => {
   assertEquals(store.getPageForUser(secondPageId, owner.id), null);
 });
 
-Deno.test("Markdown preview is rendered through the Steno template core", () => {
-  const output = renderMarkdown("# Hello\n\nThis is **Atrium**.");
+Deno.test("Markdown preview is rendered through the Steno template core", async () => {
+  const output = await renderMarkdown("# Hello\n\nThis is **Atrium**.");
 
   assertMatch(output, /<h1>Hello<\/h1>/);
   assertMatch(output, /<strong>Atrium<\/strong>/);
   assertMatch(output, /class="rendered-markdown"/);
 });
 
-Deno.test("rendered Markdown removes executable HTML", () => {
-  const output = renderMarkdown(
+Deno.test("rendered Markdown removes executable HTML", async () => {
+  const output = await renderMarkdown(
     '# Safe\n\n<script>alert("no")</script><a href="javascript:alert(1)">link</a>',
   );
 
@@ -618,8 +618,8 @@ Deno.test("same-origin protection rejects mutations without Origin", async () =>
   assertEquals(response.status, 403);
 });
 
-Deno.test("image Markdown remains available after sanitization", () => {
-  const output = renderMarkdown("![Diagram](/files/1/diagram.png)");
+Deno.test("image Markdown remains available after sanitization", async () => {
+  const output = await renderMarkdown("![Diagram](/files/1/diagram.png)");
   assertMatch(output, /<img src="\/files\/1\/diagram.png" alt="Diagram"/);
 });
 

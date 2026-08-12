@@ -2,7 +2,8 @@ import type { PageDetail } from "../store.ts";
 import { renderMarkdown } from "../renderer.ts";
 import { escapeHtml, page } from "./shared.ts";
 
-export function renderPublicPage(document: PageDetail): string {
+export async function renderPublicPage(document: PageDetail): Promise<string> {
+  const content = await renderMarkdown(document.body);
   return page(
     document.title,
     `<header class="public-header">
@@ -12,7 +13,7 @@ export function renderPublicPage(document: PageDetail): string {
       <span>${escapeHtml(document.bookTitle)}</span>
     </header>
     <main class="public-document">
-      <article class="document">${renderMarkdown(document.body)}</article>
+      <article class="document">${content}</article>
     </main>`,
     "public-body",
   );
