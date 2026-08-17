@@ -1,3 +1,4 @@
+import QRCode from "qrcode";
 import type { User, WorkspaceOverview } from "../store.ts";
 import { escapeHtml, page } from "./shared.ts";
 
@@ -70,17 +71,24 @@ export function renderResetPassword(token: string, error?: string): string {
   );
 }
 
-export function renderAccountSecurity(
+export async function renderAccountSecurity(
   user: User,
   workspace: WorkspaceOverview,
   pendingSecret?: string,
   error?: string,
   recoveryCodes?: string[],
-): string {
+): Promise<string> {
   const issuer = encodeURIComponent("Atrium");
   const account = encodeURIComponent(user.email);
   const uri = pendingSecret
     ? `otpauth://totp/${issuer}:${account}?secret=${pendingSecret}&issuer=${issuer}`
+    : "";
+  const qrSvg = pendingSecret
+    ? await QRCode.toString(uri, {
+      type: "svg",
+      margin: 1,
+      color: { dark: "#000000", light: "#ffffff" },
+    })
     : "";
   return page(
     "Account security · Atrium",
@@ -112,10 +120,12 @@ export function renderAccountSecurity(
               <button class="button button-danger">Disable MFA</button>
             </form>`
         : pendingSecret
-        ? `<p>Add this secret to any TOTP authenticator, then enter its code.</p>
-            <code class="secret-code">${escapeHtml(pendingSecret)}</code>
-            <details><summary>Authenticator URI</summary>
-              <code class="uri-code">${escapeHtml(uri)}</code></details>
+        ? `<p>Scan this with your authenticator app, then enter its code.</p>
+            <div class="qr-code">${qrSvg}</div>
+            <details><summary>Can't scan? Enter this code manually</summary>
+              <code class="secret-code">${
+          escapeHtml(pendingSecret)
+        }</code></details>
             <form method="post" action="/account/mfa/confirm" class="inline-form mfa-form">
               <input type="hidden" name="secret" value="${
           escapeHtml(pendingSecret)

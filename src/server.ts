@@ -136,7 +136,11 @@ export async function handleRequest(
     const asset = store.getAsset(Number(fileMatch[1]));
     if (!asset) return new Response("Not found", { status: 404 });
     const user = await currentUser(request, store);
-    if (!store.canReadAsset(user?.id ?? null, asset.id)) {
+    const shareToken = url.searchParams.get("share");
+    const authorized = store.canReadAsset(user?.id ?? null, asset.id) ||
+      (shareToken &&
+        await store.canReadAssetWithShareToken(asset.id, shareToken));
+    if (!authorized) {
       return new Response("Not found", { status: 404 });
     }
     try {
@@ -472,7 +476,7 @@ export async function handleRequest(
     const user = await currentUser(request, store);
     if (!user) return redirect("/login");
     return html(
-      renderAccountSecurity(
+      await renderAccountSecurity(
         user,
         store.getWorkspaceOverview(user.id),
         url.searchParams.get("secret") ?? undefined,
@@ -502,7 +506,7 @@ export async function handleRequest(
     const code = String(form.get("code") ?? "");
     if (secret !== user.mfaSecret || !(await verifyTotpCode(secret, code))) {
       return html(
-        renderAccountSecurity(
+        await renderAccountSecurity(
           user,
           store.getWorkspaceOverview(user.id),
           secret,
@@ -515,7 +519,7 @@ export async function handleRequest(
     const recoveryCodes = await store.createMfaRecoveryCodes(user.id);
     const updated = await currentUser(request, store);
     return html(
-      renderAccountSecurity(
+      await renderAccountSecurity(
         updated ?? { ...user, mfaSecret: secret, mfaEnabled: true },
         store.getWorkspaceOverview(user.id),
         undefined,
@@ -1129,7 +1133,7 @@ function html(body: string, status = 200): Response {
     status,
     headers: {
       "content-security-policy":
-        "default-src 'self'; style-src 'self' https://cdn.jsdelivr.net; font-src 'self' https://cdn.jsdelivr.net; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+        "default-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
       "cross-origin-opener-policy": "same-origin",
       "cross-origin-resource-policy": "same-origin",
       "permissions-policy":

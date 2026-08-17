@@ -15,6 +15,7 @@
   "imports": {
     "@steno/steno": "jsr:@steno/steno@^0.11.2",
     "marked": "npm:marked@^16.2.1",
+    "qrcode": "npm:qrcode@^1.5.4",
     "sanitize-html": "npm:sanitize-html@^2.17.0"
   },
   "fmt": {

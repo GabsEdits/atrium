@@ -1,3 +1,5 @@
+import { icon } from "./icons.ts";
+
 export function page(title: string, body: string, bodyClass = ""): string {
   return `<!doctype html>
 <html lang="en">
@@ -6,16 +8,14 @@ export function page(title: string, body: string, bodyClass = ""): string {
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="color-scheme" content="light dark">
     <title>${escapeHtml(title)}</title>
-    <link rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@phosphor-icons/web@2.1.2/src/regular/style.css">
-    <link rel="stylesheet" href="/assets/app.css?v=10">
-    <script src="/assets/app.js?v=10" defer></script>
+    <link rel="stylesheet" href="/assets/app.css?v=11">
+    <script src="/assets/app.js?v=11" defer></script>
   </head>
   <body class="${escapeHtml(bodyClass)}">${body}
     <dialog class="search-dialog" data-search-dialog aria-labelledby="search-dialog-title">
       <div class="search-dialog-shell">
         <header>
-          <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+          ${icon("search")}
           <input type="search" data-search-input placeholder="Search pages…"
             aria-label="Search pages" autocomplete="off">
           <kbd>esc</kbd>

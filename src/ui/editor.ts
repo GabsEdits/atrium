@@ -1,6 +1,7 @@
 import type { PageDetail, User, WorkspaceOverview } from "../store.ts";
 import { renderMarkdown } from "../renderer.ts";
 import { escapeHtml, page } from "./shared.ts";
+import { icon } from "./icons.ts";
 
 export async function renderEditor(
   user: User,
@@ -19,7 +20,7 @@ export async function renderEditor(
             <strong>Editing</strong>
           </div>
           <a class="global-search" href="/search">
-            <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+            ${icon("search")}
             <span>Search everything</span><kbd>⌘ K</kbd>
           </a>
           <div class="editor-actions">
@@ -92,7 +93,7 @@ export async function renderEditor(
       </form>`
     : `<header class="topbar">
         <a class="global-search" href="/search">
-          <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+          ${icon("search")}
           <span>Search everything</span><kbd>⌘ K</kbd>
         </a>
         <div class="breadcrumbs">

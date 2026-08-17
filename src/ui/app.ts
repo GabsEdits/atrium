@@ -1,5 +1,6 @@
 import type { User, WorkspaceOverview } from "../store.ts";
 import { escapeHtml, page } from "./shared.ts";
+import { icon } from "./icons.ts";
 
 export function renderApp(user: User, workspace: WorkspaceOverview): string {
   const activeBook = workspace.books[0];
@@ -18,7 +19,7 @@ export function renderApp(user: User, workspace: WorkspaceOverview): string {
             <strong>${escapeHtml(activePage?.title ?? "Welcome")}</strong>
           </div>
           <a class="global-search" href="/search">
-            <i class="ph ph-magnifying-glass" aria-hidden="true"></i>
+            ${icon("search")}
             <span>Search everything</span><kbd>⌘ K</kbd>
           </a>
           <div class="topbar-actions">
@@ -33,14 +34,12 @@ export function renderApp(user: User, workspace: WorkspaceOverview): string {
         : ""
     }
             <a class="icon-button" href="/settings/members"
-              aria-label="Workspace settings"><i class="ph ph-gear"
-                aria-hidden="true"></i></a>
+              aria-label="Workspace settings">${icon("settings")}</a>
           </div>
         </header>
         <article class="document">
           <div class="document-meta">
-            <span class="document-icon"><i class="ph ph-sparkle"
-              aria-hidden="true"></i></span>
+            <span class="document-icon">${icon("sparkles")}</span>
             <span>Getting started</span>
           </div>
           <h1>Welcome to Atrium</h1>
@@ -55,7 +54,7 @@ export function renderApp(user: User, workspace: WorkspaceOverview): string {
             whether each part stays private or becomes public.
           </p>
           <div class="callout">
-            <i class="ph ph-info" aria-hidden="true"></i>
+            ${icon("info")}
             <div>
               <strong>Privacy is inherited</strong>
               <p>New books and pages begin with their workspace visibility.</p>

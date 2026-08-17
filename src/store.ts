@@ -1005,6 +1005,19 @@ export class AtriumStore {
         row.book_visibility === "public" && row.page_visibility === "public");
   }
 
+  async canReadAssetWithShareToken(
+    assetId: number,
+    token: string,
+  ): Promise<boolean> {
+    const row = this.#database.prepare(
+      `SELECT 1 FROM assets
+       JOIN page_shares ON page_shares.page_id = assets.page_id
+       WHERE assets.id = ? AND page_shares.token_hash = ?
+         AND page_shares.revoked_at IS NULL AND page_shares.expires_at > ?`,
+    ).get(assetId, await hashSessionToken(token), new Date().toISOString());
+    return row !== undefined;
+  }
+
   #assertMember(userId: number, workspaceId: number): void {
     const member = this.#database.prepare(
       "SELECT 1 FROM memberships WHERE user_id = ? AND workspace_id = ?",
