@@ -1,4 +1,5 @@
 import { escapeHtml, page } from "./shared.ts";
+import { logoMark } from "./icons.ts";
 
 export function renderAuth(
   mode: "setup" | "login",
@@ -12,7 +13,7 @@ export function renderAuth(
     setup ? "Set up Atrium" : "Sign in · Atrium",
     `<div class="auth-shell">
       <a class="wordmark" href="/" aria-label="Atrium home">
-        <span class="brand-mark brand-mark-small">A</span>
+        <span class="brand-mark brand-mark-small">${logoMark}</span>
         <span>Atrium</span>
       </a>
       <main class="auth-card">
@@ -90,7 +91,7 @@ export function renderNoWorkspace(name: string): string {
     "No workspace access · Atrium",
     `<div class="auth-shell">
       <a class="wordmark" href="/" aria-label="Atrium home">
-        <span class="brand-mark brand-mark-small">A</span>
+        <span class="brand-mark brand-mark-small">${logoMark}</span>
         <span>Atrium</span>
       </a>
       <main class="auth-card">

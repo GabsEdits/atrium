@@ -1,6 +1,7 @@
 import type { PageDetail } from "../store.ts";
 import { renderMarkdown } from "../renderer.ts";
 import { escapeHtml, page } from "./shared.ts";
+import { logoMark } from "./icons.ts";
 
 export async function renderPublicPage(document: PageDetail): Promise<string> {
   const content = await renderMarkdown(document.body);
@@ -8,7 +9,7 @@ export async function renderPublicPage(document: PageDetail): Promise<string> {
     document.title,
     `<header class="public-header">
       <a class="wordmark" href="/">
-        <span class="brand-mark brand-mark-small">A</span><span>Atrium</span>
+        <span class="brand-mark brand-mark-small">${logoMark}</span><span>Atrium</span>
       </a>
       <span>${escapeHtml(document.bookTitle)}</span>
     </header>

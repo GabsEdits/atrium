@@ -1,10 +1,11 @@
 import { page } from "./shared.ts";
+import { logoMark } from "./icons.ts";
 
 export function renderWelcome(): string {
   return page(
     "Atrium",
     `<main class="welcome">
-      <div class="brand-mark" aria-hidden="true">A</div>
+      <div class="brand-mark" aria-hidden="true">${logoMark}</div>
       <div>
         <p class="eyebrow">Powered by Steno</p>
         <h1>Your knowledge,<br>in one place.</h1>
