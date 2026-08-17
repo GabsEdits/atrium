@@ -21,6 +21,7 @@ import { renderPublicPage } from "./ui/public.ts";
 import { renderWelcome } from "./ui/welcome.ts";
 import { renderMarkdown } from "./renderer.ts";
 import {
+  memberContent,
   renderAssetCreated,
   renderAssets,
   renderExistingInvitation,
@@ -31,6 +32,7 @@ import {
   renderShareCreated,
 } from "./ui/manage.ts";
 import {
+  accountSecurityContent,
   renderAccountSecurity,
   renderForgotPassword,
   renderMfaChallenge,
@@ -244,7 +246,9 @@ export async function handleRequest(
     if (!user) return redirect("/login");
     const workspace = store.findWorkspaceOverview(user.id);
     return html(
-      workspace ? renderApp(user, workspace) : renderNoWorkspace(user.name),
+      workspace
+        ? renderApp(user, workspace, store.listRecentPages(user.id))
+        : renderNoWorkspace(user.name),
     );
   }
 
@@ -443,7 +447,7 @@ export async function handleRequest(
     return redirect("/login", { "set-cookie": clearSessionCookie() });
   }
 
-  if (url.pathname === "/settings/members") {
+  if (url.pathname === "/settings/members" && request.method === "GET") {
     const user = await currentUser(request, store);
     if (!user) return redirect("/login");
     const workspace = store.getWorkspaceOverview(user.id);
@@ -457,6 +461,12 @@ export async function handleRequest(
       const deliveryError = delivery === "failed"
         ? "The invitation was created, but its email could not be delivered. Copy and send the link below."
         : undefined;
+      const deliverySent = delivery === "sent";
+      if (wantsFragment(request)) {
+        return html(
+          memberContent(user, members, inviteUrl, deliveryError, deliverySent),
+        );
+      }
       return html(
         renderMembers(
           user,
@@ -464,7 +474,7 @@ export async function handleRequest(
           members,
           inviteUrl,
           deliveryError,
-          delivery === "sent",
+          deliverySent,
         ),
       );
     } catch {
@@ -475,11 +485,15 @@ export async function handleRequest(
   if (url.pathname === "/account/security" && request.method === "GET") {
     const user = await currentUser(request, store);
     if (!user) return redirect("/login");
+    const pendingSecret = url.searchParams.get("secret") ?? undefined;
+    if (wantsFragment(request)) {
+      return html(await accountSecurityContent(user, pendingSecret));
+    }
     return html(
       await renderAccountSecurity(
         user,
         store.getWorkspaceOverview(user.id),
-        url.searchParams.get("secret") ?? undefined,
+        pendingSecret,
       ),
     );
   }
@@ -857,10 +871,18 @@ export async function handleRequest(
         form.get("workspaceVisibility"),
       );
       const bookVisibility = parseVisibility(form.get("bookVisibility"));
+      const wantsJson = request.headers.get("accept")?.includes(
+        "application/json",
+      );
       if (
         !title || !body || !visibility || !workspaceVisibility ||
         !bookVisibility
       ) {
+        if (wantsJson) {
+          return Response.json({
+            error: "A title, Markdown body, and valid visibility are required.",
+          }, { status: 422 });
+        }
         return html(
           await renderEditor(
             user,
@@ -878,6 +900,9 @@ export async function handleRequest(
         { title, body, visibility },
         { workspaceVisibility, bookVisibility },
       );
+      if (wantsJson) {
+        return Response.json({ title });
+      }
       return redirect(`/pages/${pageId}`);
     }
   }
@@ -972,6 +997,37 @@ export async function handleRequest(
       ? store.getPageForUser(returnTo, user.id)
       : null;
     return redirect(page ? `/pages/${returnTo}` : "/");
+  }
+
+  const reorderMatch = url.pathname.match(/^\/books\/(\d+)\/pages\/reorder$/);
+  if (request.method === "POST" && reorderMatch) {
+    if (!isSameOrigin(request)) {
+      return new Response("Invalid origin", { status: 403 });
+    }
+    const user = await currentUser(request, store);
+    if (!user) return new Response("Unauthorized", { status: 401 });
+    let payload: unknown;
+    try {
+      payload = await request.json();
+    } catch {
+      return new Response("Invalid request body", { status: 400 });
+    }
+    const pageIds = Array.isArray((payload as { pageIds?: unknown })?.pageIds)
+      ? (payload as { pageIds: unknown[] }).pageIds
+      : null;
+    if (!pageIds || !pageIds.every((id) => Number.isSafeInteger(id))) {
+      return new Response("Invalid page order", { status: 422 });
+    }
+    try {
+      store.reorderPages(
+        user.id,
+        Number(reorderMatch[1]),
+        pageIds as number[],
+      );
+      return Response.json({ ok: true });
+    } catch (error) {
+      return new Response((error as Error).message, { status: 403 });
+    }
   }
 
   if (request.method === "POST" && url.pathname === "/pages") {
@@ -1103,6 +1159,11 @@ async function currentUser(request: Request, store: AtriumStore) {
   return token ? await store.findUserBySession(token) : null;
 }
 
+function wantsFragment(request: Request): boolean {
+  return request.headers.get("x-atrium-fragment") === "1" ||
+    request.headers.get("accept")?.includes("application/json") === true;
+}
+
 function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get("origin");
   const expected = requestRuntime.get(request)?.baseUrl ??
@@ -1133,7 +1194,7 @@ function html(body: string, status = 200): Response {
     status,
     headers: {
       "content-security-policy":
-        "default-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
+        "default-src 'self'; script-src 'self' 'sha256-xw6tMOtU0tLXuH3Xi5q+fEeQU4jMMyNuNfJ9yYRYTRo='; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'",
       "cross-origin-opener-policy": "same-origin",
       "cross-origin-resource-policy": "same-origin",
       "permissions-policy":

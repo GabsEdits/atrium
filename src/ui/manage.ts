@@ -6,43 +6,38 @@ import type {
   User,
   WorkspaceOverview,
 } from "../store.ts";
-import { escapeHtml, page } from "./shared.ts";
+import { emptyState, escapeHtml, page, pageTabs } from "./shared.ts";
+import { bookRail, documentPanel, pageTopbar } from "./editor.ts";
+import { logoMark } from "./icons.ts";
 
-export function renderMembers(
+export function memberContent(
   user: User,
-  workspace: WorkspaceOverview,
   members: Member[],
   inviteUrl?: string,
   error?: string,
   inviteDelivered = false,
 ): string {
-  return page(
-    `Members · ${workspace.name}`,
-    shell(
-      user,
-      workspace,
-      `<div class="settings-page">
+  return `<div class="settings-page">
         <header class="settings-heading">
           <div><p class="eyebrow">Workspace settings</p><h1>Members</h1>
             <p>Invite people and choose what they can do.</p></div>
-          <a class="button button-secondary" href="/">Done</a>
         </header>
         ${error ? `<div class="alert">${escapeHtml(error)}</div>` : ""}
         ${
-        inviteUrl
-          ? `<div class="success-card"><strong>${
-            inviteDelivered ? "Invitation emailed" : "Invitation ready"
-          }</strong>
+    inviteUrl
+      ? `<div class="success-card"><strong>${
+        inviteDelivered ? "Invitation emailed" : "Invitation ready"
+      }</strong>
               <p>${
-            inviteDelivered
-              ? "The email was sent. You can also copy this private link."
-              : "Send this private link to the invited person. It expires in 7 days."
-          }</p>
+        inviteDelivered
+          ? "The email was sent. You can also copy this private link."
+          : "Send this private link to the invited person. It expires in 7 days."
+      }</p>
               <input readonly value="${
-            escapeHtml(inviteUrl)
-          }" aria-label="Invitation link"></div>`
-          : ""
-      }
+        escapeHtml(inviteUrl)
+      }" aria-label="Invitation link"></div>`
+      : ""
+  }
         <section class="settings-card">
           <h2>Invite someone</h2>
           <form method="post" action="/invitations" class="inline-form">
@@ -58,34 +53,50 @@ export function renderMembers(
         <section class="settings-card member-list">
           <h2>People with access</h2>
           ${
-        members.map((member) => `
+    members.map((member) => `
             <div class="member-row">
               <div class="user-avatar">${
-          escapeHtml(member.name.charAt(0))
-        }</div>
+      escapeHtml(member.name.charAt(0))
+    }</div>
               <div class="member-copy"><strong>${
-          escapeHtml(member.name)
-        }</strong>
+      escapeHtml(member.name)
+    }</strong>
                 <span>${escapeHtml(member.email)}</span></div>
               <form method="post" action="/members/${member.userId}/role">
                 <select name="role" aria-label="Role for ${
-          escapeHtml(member.name)
-        }">
+      escapeHtml(member.name)
+    }">
                   ${roleOptions(member.role)}
                 </select>
                 <button class="button button-secondary">Update</button>
               </form>
               ${
-          member.userId !== user.id
-            ? `<form method="post" action="/members/${member.userId}/remove">
+      member.userId !== user.id
+        ? `<form method="post" action="/members/${member.userId}/remove">
                   <button class="button button-danger" type="submit">Remove</button>
                 </form>`
-            : '<span class="you-label">You</span>'
-        }
+        : '<span class="you-label">You</span>'
+    }
             </div>`).join("")
-      }
+  }
         </section>
-      </div>`,
+      </div>`;
+}
+
+export function renderMembers(
+  user: User,
+  workspace: WorkspaceOverview,
+  members: Member[],
+  inviteUrl?: string,
+  error?: string,
+  inviteDelivered = false,
+): string {
+  return page(
+    `Members · ${workspace.name}`,
+    shell(
+      user,
+      workspace,
+      memberContent(user, members, inviteUrl, error, inviteDelivered),
     ),
     "app-body",
   );
@@ -99,7 +110,7 @@ export function renderInvitation(
   return page(
     `Join ${invitation.workspaceName} · Atrium`,
     `<div class="auth-shell invitation-shell">
-      <a class="wordmark" href="/"><span class="brand-mark brand-mark-small">A</span>
+      <a class="wordmark" href="/"><span class="brand-mark brand-mark-small">${logoMark}</span>
         <span>Atrium</span></a>
       <main class="auth-card">
         <div class="auth-heading"><p class="eyebrow">Invitation</p>
@@ -141,6 +152,35 @@ export function renderExistingInvitation(
   );
 }
 
+export function revisionContent(
+  document: PageDetail,
+  revisions: PageRevision[],
+): string {
+  return `${pageTabs(document.id, "history")}
+      <div class="document-meta"><p class="eyebrow">Page history</p></div>
+      <p class="document-lead">Restore any previously saved version.</p>
+      <section class="settings-card revision-list">
+          ${
+    revisions.length === 0
+      ? emptyState(
+        "history",
+        "No revisions yet",
+        "Every saved edit to this page will show up here.",
+      )
+      : revisions.map((revision) => `
+            <div class="revision-row">
+              <div><strong>${escapeHtml(revision.title)}</strong>
+                <span>${escapeHtml(revision.createdAt)} · ${
+        escapeHtml(revision.authorName)
+      } · ${escapeHtml(revision.visibility)}</span></div>
+              <form method="post" action="/pages/${document.id}/revisions/${revision.id}/restore">
+                <button class="button button-secondary">Restore</button>
+              </form>
+            </div>`).join("")
+  }
+      </section>`;
+}
+
 export function renderRevisions(
   user: User,
   workspace: WorkspaceOverview,
@@ -149,33 +189,16 @@ export function renderRevisions(
 ): string {
   return page(
     `History · ${document.title}`,
-    shell(
-      user,
-      workspace,
-      `<div class="settings-page">
-        <header class="settings-heading"><div><p class="eyebrow">Page history</p>
-          <h1>${escapeHtml(document.title)}</h1>
-          <p>Restore any previously saved version.</p></div>
-          <a class="button button-secondary" href="/pages/${document.id}">Back to page</a>
-        </header>
-        <section class="settings-card revision-list">
-          ${
-        revisions.length === 0
-          ? "<p>No previous revisions yet.</p>"
-          : revisions.map((revision) => `
-            <div class="revision-row">
-              <div><strong>${escapeHtml(revision.title)}</strong>
-                <span>${escapeHtml(revision.createdAt)} · ${
-            escapeHtml(revision.authorName)
-          } · ${escapeHtml(revision.visibility)}</span></div>
-              <form method="post" action="/pages/${document.id}/revisions/${revision.id}/restore">
-                <button class="button button-secondary">Restore</button>
-              </form>
-            </div>`).join("")
-      }
-        </section>
-      </div>`,
-    ),
+    `<div class="atrium-shell">
+      ${bookRail(user, workspace, document.bookId)}
+      ${documentPanel(workspace, document.bookId, document.id)}
+      <main class="workspace-canvas">
+        ${pageTopbar(document, workspace)}
+        <article class="document">
+          ${revisionContent(document, revisions)}
+        </article>
+      </main>
+    </div>`,
     "app-body",
   );
 }
@@ -200,7 +223,15 @@ export function renderSearch(
           <button class="button button-primary">Search</button>
         </form>
         <div class="search-results">
-          ${query && results.length === 0 ? "<p>No matching pages.</p>" : ""}
+          ${
+        query && results.length === 0
+          ? emptyState(
+            "search-x",
+            "No matching pages",
+            "Try a different word or phrase.",
+          )
+          : ""
+      }
           ${
         results.map((result) => `
             <a class="search-result" href="/pages/${result.pageId}">
@@ -255,6 +286,54 @@ export function renderAssetCreated(
   );
 }
 
+export function assetContent(
+  document: PageDetail,
+  assets: Array<{
+    id: number;
+    originalName: string;
+    mimeType: string;
+    size: number;
+  }>,
+): string {
+  return `${pageTabs(document.id, "files")}
+      <div class="document-meta"><p class="eyebrow">Page assets</p></div>
+      <p class="document-lead">Upload images and files, then copy their Markdown into the editor.</p>
+      <section class="settings-card">
+          <form method="post" enctype="multipart/form-data"
+            action="/pages/${document.id}/assets" class="inline-form">
+            <input name="file" type="file" aria-label="File to upload" required>
+            <button class="button button-primary">Upload</button>
+          </form>
+      </section>
+      <section class="settings-card asset-list">
+          <h2>Uploaded files</h2>
+          ${
+    assets.length === 0
+      ? emptyState(
+        "inbox",
+        "No files uploaded yet",
+        "Upload images and files to use them in this page.",
+      )
+      : assets.map((asset) => `
+            <div class="member-row">
+              <div class="member-copy"><strong>${
+        escapeHtml(asset.originalName)
+      }</strong>
+                <span>${escapeHtml(asset.mimeType)} · ${
+        formatBytes(asset.size)
+      }</span></div>
+              <a class="button button-secondary"
+                href="/files/${asset.id}/${
+        encodeURIComponent(asset.originalName)
+      }">Open</a>
+              <form method="post" action="/assets/${asset.id}/delete">
+                <button class="button button-danger">Delete</button>
+              </form>
+            </div>`).join("")
+  }
+      </section>`;
+}
+
 export function renderAssets(
   user: User,
   workspace: WorkspaceOverview,
@@ -268,47 +347,16 @@ export function renderAssets(
 ): string {
   return page(
     `Assets · ${document.title}`,
-    shell(
-      user,
-      workspace,
-      `<div class="settings-page">
-        <header class="settings-heading"><div><p class="eyebrow">Page assets</p>
-          <h1>${escapeHtml(document.title)}</h1>
-          <p>Upload images and files, then copy their Markdown into the editor.</p></div>
-          <a class="button button-secondary" href="/pages/${document.id}">Back to page</a>
-        </header>
-        <section class="settings-card">
-          <form method="post" enctype="multipart/form-data"
-            action="/pages/${document.id}/assets" class="inline-form">
-            <input name="file" type="file" aria-label="File to upload" required>
-            <button class="button button-primary">Upload</button>
-          </form>
-        </section>
-        <section class="settings-card asset-list">
-          <h2>Uploaded files</h2>
-          ${
-        assets.length === 0
-          ? "<p>No files uploaded yet.</p>"
-          : assets.map((asset) => `
-            <div class="member-row">
-              <div class="member-copy"><strong>${
-            escapeHtml(asset.originalName)
-          }</strong>
-                <span>${escapeHtml(asset.mimeType)} · ${
-            formatBytes(asset.size)
-          }</span></div>
-              <a class="button button-secondary"
-                href="/files/${asset.id}/${
-            encodeURIComponent(asset.originalName)
-          }">Open</a>
-              <form method="post" action="/assets/${asset.id}/delete">
-                <button class="button button-danger">Delete</button>
-              </form>
-            </div>`).join("")
-      }
-        </section>
-      </div>`,
-    ),
+    `<div class="atrium-shell">
+      ${bookRail(user, workspace, document.bookId)}
+      ${documentPanel(workspace, document.bookId, document.id)}
+      <main class="workspace-canvas">
+        ${pageTopbar(document, workspace)}
+        <article class="document">
+          ${assetContent(document, assets)}
+        </article>
+      </main>
+    </div>`,
     "app-body",
   );
 }
@@ -319,7 +367,7 @@ function shell(
   content: string,
 ): string {
   return `<header class="settings-topbar">
-      <a class="wordmark" href="/"><span class="brand-mark brand-mark-small">A</span>
+      <a class="wordmark" href="/"><span class="brand-mark brand-mark-small">${logoMark}</span>
         <span>Atrium</span></a>
       <span>${escapeHtml(workspace.name)}</span>
       <span>${escapeHtml(user.name)}</span>

@@ -1,7 +1,7 @@
 import type { PageDetail, User, WorkspaceOverview } from "../store.ts";
 import { renderMarkdown } from "../renderer.ts";
-import { escapeHtml, page } from "./shared.ts";
-import { icon } from "./icons.ts";
+import { escapeHtml, page, pageTabs } from "./shared.ts";
+import { icon, logoMark } from "./icons.ts";
 
 export async function renderEditor(
   user: User,
@@ -24,7 +24,7 @@ export async function renderEditor(
             <span>Search everything</span><kbd>⌘ K</kbd>
           </a>
           <div class="editor-actions">
-            <a class="quiet-action" href="/pages/${document.id}">Cancel</a>
+            <a class="quiet-action" data-edit-toggle href="/pages/${document.id}">Done</a>
             <span class="save-state" data-save-state aria-live="polite"></span>
             <details class="visibility-menu">
               <summary><span class="visibility-dot visibility-${document.visibility}"></span>
@@ -91,49 +91,9 @@ export async function renderEditor(
           </section>
         </div>
       </form>`
-    : `<header class="topbar">
-        <a class="global-search" href="/search">
-          ${icon("search")}
-          <span>Search everything</span><kbd>⌘ K</kbd>
-        </a>
-        <div class="breadcrumbs">
-          <span>${escapeHtml(document.bookTitle)}</span><span>/</span>
-          <strong>${escapeHtml(document.title)}</strong>
-        </div>
-        <div class="topbar-actions">
-          <span class="visibility-badge">
-            <span class="visibility-dot visibility-${document.visibility}"></span>
-            ${escapeHtml(document.visibility)}
-          </span>
-          <a class="button button-secondary" href="/pages/${document.id}/edit">Edit</a>
-          <details class="page-menu"><summary class="icon-button">•••</summary>
-            <div class="page-menu-popover">
-              <a href="/pages/${document.id}/revisions">History</a>
-              <a href="/pages/${document.id}/assets">Files</a>
-              <form method="post" action="/pages/${document.id}/share">
-                <button>Copy share link</button>
-              </form>
-              <form method="post" action="/pages/${document.id}/share/revoke">
-                <button>Revoke share links</button>
-              </form>
-              <form method="post" action="/pages/${document.id}/delete"
-                data-confirm="Delete “${
-      escapeHtml(document.title)
-    }”? This cannot be undone.">
-                <button class="danger-action">Delete page</button>
-              </form>
-              ${
-      isPublic(document)
-        ? `<a target="_blank" href="/s/${escapeHtml(document.workspaceSlug)}/${
-          escapeHtml(document.bookSlug)
-        }/${escapeHtml(document.slug)}">View public page</a>`
-        : ""
-    }
-            </div>
-          </details>
-        </div>
-      </header>
+    : `${pageTopbar(document, workspace)}
       <article class="document">
+        ${pageTabs(document.id, "content")}
         ${renderedBody}
         <p class="updated-at">Last updated ${escapeHtml(document.updatedAt)}</p>
       </article>`;
@@ -149,7 +109,7 @@ export async function renderEditor(
   );
 }
 
-function bookRail(
+export function bookRail(
   user: User,
   workspace: WorkspaceOverview,
   activeBookId: number,
@@ -171,7 +131,7 @@ function bookRail(
   }).join("");
 
   return `<aside class="book-rail">
-    <a class="rail-brand" href="/" aria-label="Atrium home">A</a>
+    <a class="rail-brand" href="/" aria-label="Atrium home">${logoMark}</a>
     <nav class="book-stack" aria-label="Books">${books}</nav>
     <form method="post" action="/books" class="rail-create">
       <button aria-label="Create book" title="Create book">＋</button>
@@ -183,15 +143,16 @@ function bookRail(
       <div class="rail-account-menu">
         <strong>${escapeHtml(user.name)}</strong>
         <span>${escapeHtml(user.email)}</span>
-        <a href="/settings/members">Workspace settings</a>
-        <a href="/account/security">Account security</a>
+        <a href="/settings/members" data-dialog-fetch>Workspace settings</a>
+        <a href="/account/security" data-dialog-fetch>Account security</a>
+        <button type="button" data-theme-toggle>Toggle theme</button>
         <form method="post" action="/logout"><button>Sign out</button></form>
       </div>
     </details>
   </aside>`;
 }
 
-function documentPanel(
+export function documentPanel(
   workspace: WorkspaceOverview,
   activeBookId: number,
   activePageId: number,
@@ -229,11 +190,12 @@ function documentPanel(
         </div>
       </details>
     </header>
-    <nav aria-label="${escapeHtml(book.title)} pages">
+    <nav aria-label="${escapeHtml(book.title)} pages" data-page-nav
+      data-book-id="${book.id}">
       ${
     book.pages.map((item) =>
       `<a class="${item.id === activePageId ? "document-link-active" : ""}"
-          href="/pages/${item.id}">
+          href="/pages/${item.id}" draggable="true" data-page-id="${item.id}">
         <span>⌞</span>${escapeHtml(item.title)}
       </a>`
     ).join("")
@@ -278,6 +240,57 @@ function bookAppearanceForm(
     <input type="hidden" name="returnTo" value="${activePageId}">
     <button class="button button-secondary" type="submit">Update</button>
   </form>`;
+}
+
+export function pageTopbar(
+  document: PageDetail,
+  workspace: WorkspaceOverview,
+): string {
+  const book = workspace.books.find((item) => item.id === document.bookId);
+  const bookHref = book?.pages[0] ? `/pages/${book.pages[0].id}` : "#";
+  return `<header class="topbar">
+        <a class="global-search" href="/search">
+          ${icon("search")}
+          <span>Search everything</span><kbd>⌘ K</kbd>
+        </a>
+        <div class="breadcrumbs">
+          <a href="${bookHref}">${
+    escapeHtml(document.bookTitle)
+  }</a><span>/</span>
+          <strong>${escapeHtml(document.title)}</strong>
+        </div>
+        <div class="topbar-actions">
+          <span class="visibility-badge">
+            <span class="visibility-dot visibility-${document.visibility}"></span>
+            ${escapeHtml(document.visibility)}
+          </span>
+          <a class="button button-secondary" data-edit-toggle
+            href="/pages/${document.id}/edit">Edit</a>
+          <details class="page-menu"><summary class="icon-button">•••</summary>
+            <div class="page-menu-popover">
+              <form method="post" action="/pages/${document.id}/share">
+                <button>Copy share link</button>
+              </form>
+              <form method="post" action="/pages/${document.id}/share/revoke">
+                <button>Revoke share links</button>
+              </form>
+              <form method="post" action="/pages/${document.id}/delete"
+                data-confirm="Delete “${
+    escapeHtml(document.title)
+  }”? This cannot be undone.">
+                <button class="danger-action">Delete page</button>
+              </form>
+              ${
+    isPublic(document)
+      ? `<a target="_blank" href="/s/${escapeHtml(document.workspaceSlug)}/${
+        escapeHtml(document.bookSlug)
+      }/${escapeHtml(document.slug)}">View public page</a>`
+      : ""
+  }
+            </div>
+          </details>
+        </div>
+      </header>`;
 }
 
 function isPublic(document: PageDetail): boolean {

@@ -4,6 +4,7 @@ import {
   assertRejects,
   assertThrows,
 } from "jsr:@std/assert@1";
+import { DatabaseSync } from "node:sqlite";
 import { handleRequest } from "./server.ts";
 import { AtriumStore } from "./store.ts";
 import { renderMarkdown } from "./renderer.ts";
@@ -232,6 +233,66 @@ Deno.test("owner can edit a page and each save creates a revision", async () => 
   assertEquals(updated?.title, "Operating notes");
   assertEquals(updated?.visibility, "public");
   assertEquals(store.revisionCount(page.id), 1);
+});
+
+Deno.test("page autosave requests return JSON instead of redirecting", async () => {
+  using store = testStore();
+  const owner = store.setupOwner({
+    name: "Ada Lovelace",
+    workspace: "Analytical Engine",
+    email: "ada@example.com",
+    passwordHash: "test-only",
+  });
+  const page = store.getWorkspaceOverview(owner.id).books[0].pages[0];
+  const session = await store.createSession(owner.id);
+  const cookie = `atrium_session=${session}`;
+
+  const saved = await handleRequest(
+    new Request(`http://atrium.test/pages/${page.id}`, {
+      method: "POST",
+      headers: {
+        cookie,
+        origin: "http://atrium.test",
+        accept: "application/json",
+      },
+      body: new URLSearchParams({
+        title: "Autosaved title",
+        body: "Autosaved body",
+        visibility: "private",
+        workspaceVisibility: "private",
+        bookVisibility: "private",
+      }),
+    }),
+    store,
+  );
+
+  assertEquals(saved.status, 200);
+  assertEquals(await saved.json(), { title: "Autosaved title" });
+  const updated = store.getPageForUser(page.id, owner.id);
+  assertEquals(updated?.title, "Autosaved title");
+
+  const invalid = await handleRequest(
+    new Request(`http://atrium.test/pages/${page.id}`, {
+      method: "POST",
+      headers: {
+        cookie,
+        origin: "http://atrium.test",
+        accept: "application/json",
+      },
+      body: new URLSearchParams({
+        title: "",
+        body: "Autosaved body",
+        visibility: "private",
+        workspaceVisibility: "private",
+        bookVisibility: "private",
+      }),
+    }),
+    store,
+  );
+
+  assertEquals(invalid.status, 422);
+  const invalidBody = await invalid.json();
+  assertMatch(invalidBody.error, /title.*required/i);
 });
 
 Deno.test("book renames preserve the stable public slug", () => {
@@ -606,6 +667,169 @@ Deno.test("assets follow page visibility and membership permissions", () => {
   assertEquals(store.getAsset(assetId), null);
 });
 
+Deno.test("new pages append to the end of a book and can be reordered", () => {
+  using store = testStore();
+  const owner = setupTestOwner(store);
+  const book = store.getWorkspaceOverview(owner.id).books[0];
+  const firstPageId = book.pages[0].id;
+  const secondPageId = store.createPage(
+    owner.id,
+    book.id,
+    "Second page",
+    "private",
+  );
+  const thirdPageId = store.createPage(
+    owner.id,
+    book.id,
+    "Third page",
+    "private",
+  );
+  assertEquals(
+    store.getWorkspaceOverview(owner.id).books[0].pages.map((page) => page.id),
+    [firstPageId, secondPageId, thirdPageId],
+  );
+
+  store.reorderPages(owner.id, book.id, [
+    thirdPageId,
+    firstPageId,
+    secondPageId,
+  ]);
+  assertEquals(
+    store.getWorkspaceOverview(owner.id).books[0].pages.map((page) => page.id),
+    [thirdPageId, firstPageId, secondPageId],
+  );
+});
+
+Deno.test("reordering pages rejects mismatched or invalid id sets", async () => {
+  using store = testStore();
+  const owner = setupTestOwner(store);
+  const workspace = store.getWorkspaceOverview(owner.id);
+  const book = workspace.books[0];
+  const firstPageId = book.pages[0].id;
+  const secondPageId = store.createPage(
+    owner.id,
+    book.id,
+    "Second page",
+    "private",
+  );
+
+  assertThrows(
+    () => store.reorderPages(owner.id, book.id, [firstPageId]),
+    Error,
+    "Ordered pages must exactly match",
+  );
+  assertThrows(
+    () =>
+      store.reorderPages(owner.id, book.id, [
+        firstPageId,
+        secondPageId,
+        999999,
+      ]),
+    Error,
+    "Ordered pages must exactly match",
+  );
+
+  const token = await store.createInvitation(
+    owner.id,
+    workspace.id,
+    "reader@example.com",
+    "reader",
+  );
+  const reader = await store.acceptInvitation(token, {
+    name: "Reader",
+    passwordHash: "test-only",
+  });
+  assertThrows(() =>
+    store.reorderPages(reader.id, book.id, [firstPageId, secondPageId])
+  );
+});
+
+Deno.test("reorder route persists new page order for editors", async () => {
+  using store = testStore();
+  const owner = setupTestOwner(store);
+  const workspace = store.getWorkspaceOverview(owner.id);
+  const book = workspace.books[0];
+  const firstPageId = book.pages[0].id;
+  const secondPageId = store.createPage(
+    owner.id,
+    book.id,
+    "Second page",
+    "private",
+  );
+  const session = await store.createSession(owner.id);
+
+  const response = await handleRequest(
+    new Request(`http://atrium.test/books/${book.id}/pages/reorder`, {
+      method: "POST",
+      headers: {
+        origin: "http://atrium.test",
+        cookie: `atrium_session=${session}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ pageIds: [secondPageId, firstPageId] }),
+    }),
+    store,
+  );
+
+  assertEquals(response.status, 200);
+  assertEquals(
+    store.getWorkspaceOverview(owner.id).books[0].pages.map((page) => page.id),
+    [secondPageId, firstPageId],
+  );
+});
+
+Deno.test("reorder route rejects readers and cross-origin requests", async () => {
+  using store = testStore();
+  const owner = setupTestOwner(store);
+  const workspace = store.getWorkspaceOverview(owner.id);
+  const book = workspace.books[0];
+  const firstPageId = book.pages[0].id;
+  const secondPageId = store.createPage(
+    owner.id,
+    book.id,
+    "Second page",
+    "private",
+  );
+  const token = await store.createInvitation(
+    owner.id,
+    workspace.id,
+    "reader@example.com",
+    "reader",
+  );
+  const reader = await store.acceptInvitation(token, {
+    name: "Reader",
+    passwordHash: "test-only",
+  });
+  const readerSession = await store.createSession(reader.id);
+
+  const crossOrigin = await handleRequest(
+    new Request(`http://atrium.test/books/${book.id}/pages/reorder`, {
+      method: "POST",
+      headers: {
+        origin: "https://attacker.example",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ pageIds: [secondPageId, firstPageId] }),
+    }),
+    store,
+  );
+  assertEquals(crossOrigin.status, 403);
+
+  const forbidden = await handleRequest(
+    new Request(`http://atrium.test/books/${book.id}/pages/reorder`, {
+      method: "POST",
+      headers: {
+        origin: "http://atrium.test",
+        cookie: `atrium_session=${readerSession}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ pageIds: [secondPageId, firstPageId] }),
+    }),
+    store,
+  );
+  assertEquals(forbidden.status, 403);
+});
+
 Deno.test("same-origin protection rejects mutations without Origin", async () => {
   using store = testStore();
   const response = await handleRequest(
@@ -621,6 +845,80 @@ Deno.test("same-origin protection rejects mutations without Origin", async () =>
 Deno.test("image Markdown remains available after sanitization", async () => {
   const output = await renderMarkdown("![Diagram](/files/1/diagram.png)");
   assertMatch(output, /<img src="\/files\/1\/diagram.png" alt="Diagram"/);
+});
+
+Deno.test("workspace members and account security serve dialog fragments", async () => {
+  using store = testStore();
+  const owner = setupTestOwner(store);
+  const session = await store.createSession(owner.id);
+  const cookie = { cookie: `atrium_session=${session}` };
+
+  const fullMembersPage = await handleRequest(
+    new Request("http://atrium.test/settings/members", { headers: cookie }),
+    store,
+  );
+  assertEquals(fullMembersPage.status, 200);
+  assertMatch(await fullMembersPage.text(), /<!doctype html>/);
+
+  const membersFragment = await handleRequest(
+    new Request("http://atrium.test/settings/members", {
+      headers: { ...cookie, "x-atrium-fragment": "1" },
+    }),
+    store,
+  );
+  assertEquals(membersFragment.status, 200);
+  const membersBody = await membersFragment.text();
+  assertEquals(membersBody.includes("<!doctype html>"), false);
+  assertMatch(membersBody, /Invite someone/);
+
+  const fullSecurityPage = await handleRequest(
+    new Request("http://atrium.test/account/security", { headers: cookie }),
+    store,
+  );
+  assertEquals(fullSecurityPage.status, 200);
+  assertMatch(await fullSecurityPage.text(), /<!doctype html>/);
+
+  const securityFragment = await handleRequest(
+    new Request("http://atrium.test/account/security", {
+      headers: { ...cookie, "x-atrium-fragment": "1" },
+    }),
+    store,
+  );
+  assertEquals(securityFragment.status, 200);
+  const securityBody = await securityFragment.text();
+  assertEquals(securityBody.includes("<!doctype html>"), false);
+  assertMatch(securityBody, /Two-factor authentication/);
+});
+
+Deno.test("opening a database created before books.position existed does not crash", async () => {
+  const path = await Deno.makeTempFile();
+  try {
+    const raw = new DatabaseSync(path);
+    raw.exec(`
+      CREATE TABLE books (
+        id INTEGER PRIMARY KEY,
+        workspace_id INTEGER NOT NULL,
+        title TEXT NOT NULL,
+        slug TEXT NOT NULL,
+        visibility TEXT NOT NULL,
+        color TEXT NOT NULL DEFAULT 'slate',
+        icon TEXT,
+        UNIQUE (workspace_id, slug)
+      );
+    `);
+    raw.close();
+
+    const store = new AtriumStore(path);
+    try {
+      const owner = setupTestOwner(store);
+      const overview = store.getWorkspaceOverview(owner.id);
+      assertEquals(overview.books[0].title, "Welcome");
+    } finally {
+      store.close();
+    }
+  } finally {
+    await Deno.remove(path);
+  }
 });
 
 function testStore(): AtriumStore & Disposable {
