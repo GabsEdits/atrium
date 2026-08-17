@@ -241,6 +241,28 @@ export class AtriumStore {
     return workspace;
   }
 
+  listRecentPages(userId: number, limit = 6): Array<{
+    id: number;
+    title: string;
+    bookTitle: string;
+    updatedAt: string;
+  }> {
+    return (this.#database.prepare(
+      `SELECT pages.id, pages.title, books.title AS book_title, pages.updated_at
+       FROM pages
+       JOIN books ON books.id = pages.book_id
+       JOIN memberships ON memberships.workspace_id = books.workspace_id
+       WHERE memberships.user_id = ?
+       ORDER BY pages.updated_at DESC
+       LIMIT ?`,
+    ).all(userId, limit) as Array<Record<string, unknown>>).map((row) => ({
+      id: Number(row.id),
+      title: String(row.title),
+      bookTitle: String(row.book_title),
+      updatedAt: String(row.updated_at),
+    }));
+  }
+
   getPageForUser(pageId: number, userId: number): PageDetail | null {
     const row = this.#database.prepare(
       `SELECT pages.id, pages.book_id, books.workspace_id,
@@ -373,16 +395,56 @@ export class AtriumStore {
     if (!book) throw new Error("Book not found.");
     this.#assertCanEdit(userId, Number(book.workspace_id));
     const result = this.#database.prepare(
-      `INSERT INTO pages (book_id, title, slug, body, visibility)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO pages (book_id, title, slug, body, visibility, position)
+       VALUES (?, ?, ?, ?, ?, ?)`,
     ).run(
       bookId,
       title,
       uniqueSlug(title),
       `# ${title}\n\nStart writing here.`,
       visibility,
+      this.#nextPagePosition(bookId),
     );
     return Number(result.lastInsertRowid);
+  }
+
+  reorderPages(
+    userId: number,
+    bookId: number,
+    orderedPageIds: number[],
+  ): void {
+    const book = this.#database.prepare(
+      "SELECT workspace_id FROM books WHERE id = ?",
+    ).get(bookId) as Record<string, unknown> | undefined;
+    if (!book) throw new Error("Book not found.");
+    this.#assertCanEdit(userId, Number(book.workspace_id));
+
+    const existingIds = new Set(
+      (this.#database.prepare("SELECT id FROM pages WHERE book_id = ?")
+        .all(bookId) as Array<Record<string, unknown>>).map((row) =>
+          Number(row.id)
+        ),
+    );
+    const uniqueOrderedIds = new Set(orderedPageIds);
+    if (
+      orderedPageIds.length !== existingIds.size ||
+      uniqueOrderedIds.size !== orderedPageIds.length ||
+      orderedPageIds.some((pageId) => !existingIds.has(pageId))
+    ) {
+      throw new Error("Ordered pages must exactly match this book's pages.");
+    }
+
+    this.#database.exec("BEGIN IMMEDIATE");
+    try {
+      const update = this.#database.prepare(
+        "UPDATE pages SET position = ? WHERE id = ?",
+      );
+      orderedPageIds.forEach((pageId, index) => update.run(index, pageId));
+      this.#database.exec("COMMIT");
+    } catch (error) {
+      this.#database.exec("ROLLBACK");
+      throw error;
+    }
   }
 
   deletePage(userId: number, pageId: number): string[] {
@@ -1046,6 +1108,13 @@ export class AtriumStore {
     }
   }
 
+  #nextPagePosition(bookId: number): number {
+    const row = this.#database.prepare(
+      "SELECT COALESCE(MAX(position), -1) + 1 AS next FROM pages WHERE book_id = ?",
+    ).get(bookId) as { next: number };
+    return Number(row.next);
+  }
+
   #migrate(): void {
     this.#database.exec(`
       CREATE TABLE IF NOT EXISTS users (
@@ -1235,6 +1304,18 @@ export class AtriumStore {
     }
     if (!bookColumns.some((column) => column.name === "icon")) {
       this.#database.exec("ALTER TABLE books ADD COLUMN icon TEXT");
+    }
+    if (!bookColumns.some((column) => column.name === "position")) {
+      this.#database.exec(
+        "ALTER TABLE books ADD COLUMN position INTEGER NOT NULL DEFAULT 0",
+      );
+    }
+    const pageColumns = this.#database.prepare("PRAGMA table_info(pages)")
+      .all() as Array<Record<string, unknown>>;
+    if (!pageColumns.some((column) => column.name === "position")) {
+      this.#database.exec(
+        "ALTER TABLE pages ADD COLUMN position INTEGER NOT NULL DEFAULT 0",
+      );
     }
   }
 }
