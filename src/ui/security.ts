@@ -1,6 +1,7 @@
 import QRCode from "qrcode";
 import type { User, WorkspaceOverview } from "../store.ts";
 import { escapeHtml, page } from "./shared.ts";
+import { logoMark } from "./icons.ts";
 
 export function renderMfaChallenge(
   challenge: string,
@@ -71,9 +72,8 @@ export function renderResetPassword(token: string, error?: string): string {
   );
 }
 
-export async function renderAccountSecurity(
+export async function accountSecurityContent(
   user: User,
-  workspace: WorkspaceOverview,
   pendingSecret?: string,
   error?: string,
   recoveryCodes?: string[],
@@ -90,57 +90,67 @@ export async function renderAccountSecurity(
       color: { dark: "#000000", light: "#ffffff" },
     })
     : "";
-  return page(
-    "Account security · Atrium",
-    `<header class="settings-topbar">
-      <a class="wordmark" href="/"><span class="brand-mark brand-mark-small">A</span>
-        <span>Atrium</span></a><span>${escapeHtml(workspace.name)}</span>
-      <span>${escapeHtml(user.name)}</span></header>
-    <main class="settings-page">
+  return `<main class="settings-page">
       <header class="settings-heading"><div><p class="eyebrow">Your account</p>
         <h1>Security</h1><p>Protect your account with an authenticator app.</p></div>
-        <a class="button button-secondary" href="/">Done</a></header>
+      </header>
       ${error ? `<div class="alert">${escapeHtml(error)}</div>` : ""}
       ${
-      recoveryCodes
-        ? `<section class="success-card recovery-codes">
+    recoveryCodes
+      ? `<section class="success-card recovery-codes">
             <strong>Save your recovery codes now</strong>
             <p>Each code works once. Store them somewhere separate from your authenticator.</p>
             <pre>${recoveryCodes.map(escapeHtml).join("\n")}</pre>
           </section>`
-        : ""
-    }
+      : ""
+  }
       <section class="settings-card">
         <h2>Two-factor authentication</h2>
         ${
-      user.mfaEnabled
-        ? `<p class="security-status"><span class="visibility-dot visibility-public"></span>
+    user.mfaEnabled
+      ? `<p class="security-status"><span class="visibility-dot visibility-public"></span>
             Enabled</p>
             <form method="post" action="/account/mfa/disable">
               <button class="button button-danger">Disable MFA</button>
             </form>`
-        : pendingSecret
-        ? `<p>Scan this with your authenticator app, then enter its code.</p>
+      : pendingSecret
+      ? `<p>Scan this with your authenticator app, then enter its code.</p>
             <div class="qr-code">${qrSvg}</div>
             <details><summary>Can't scan? Enter this code manually</summary>
               <code class="secret-code">${
-          escapeHtml(pendingSecret)
-        }</code></details>
+        escapeHtml(pendingSecret)
+      }</code></details>
             <form method="post" action="/account/mfa/confirm" class="inline-form mfa-form">
               <input type="hidden" name="secret" value="${
-          escapeHtml(pendingSecret)
-        }">
+        escapeHtml(pendingSecret)
+      }">
               <input name="code" inputmode="numeric" pattern="[0-9]{6}"
                 placeholder="123456" aria-label="Authentication code" required>
               <button class="button button-primary">Enable MFA</button>
             </form>`
-        : `<p>Require a rotating six-digit code after your password.</p>
+      : `<p>Require a rotating six-digit code after your password.</p>
             <form method="post" action="/account/mfa/start">
               <button class="button button-primary">Set up authenticator</button>
             </form>`
-    }
+  }
       </section>
-    </main>`,
+    </main>`;
+}
+
+export async function renderAccountSecurity(
+  user: User,
+  workspace: WorkspaceOverview,
+  pendingSecret?: string,
+  error?: string,
+  recoveryCodes?: string[],
+): Promise<string> {
+  return page(
+    "Account security · Atrium",
+    `<header class="settings-topbar">
+      <a class="wordmark" href="/"><span class="brand-mark brand-mark-small">${logoMark}</span>
+        <span>Atrium</span></a><span>${escapeHtml(workspace.name)}</span>
+      <span>${escapeHtml(user.name)}</span></header>
+    ${await accountSecurityContent(user, pendingSecret, error, recoveryCodes)}`,
     "app-body",
   );
 }
@@ -152,7 +162,7 @@ function authCard(
   error?: string,
 ): string {
   return `<div class="auth-shell">
-    <a class="wordmark" href="/"><span class="brand-mark brand-mark-small">A</span>
+    <a class="wordmark" href="/"><span class="brand-mark brand-mark-small">${logoMark}</span>
       <span>Atrium</span></a>
     <main class="auth-card"><div class="auth-heading"><h1>${
     escapeHtml(title)
