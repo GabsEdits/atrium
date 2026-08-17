@@ -9,7 +9,8 @@ RUN apk add --no-cache su-exec \
 WORKDIR /app
 COPY deno.json deno.lock mod.ts ./
 COPY src ./src
-RUN deno cache mod.ts
+RUN deno cache mod.ts \
+  && chown -R deno:deno /deno-dir
 
 COPY docker-entrypoint.sh /usr/local/bin/atrium-entrypoint
 RUN chmod 755 /usr/local/bin/atrium-entrypoint
