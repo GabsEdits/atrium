@@ -6,6 +6,11 @@ let searchTimer;
 let searchController;
 let searchIndex = 0;
 
+const settingsDialog = document.querySelector("[data-settings-dialog]");
+const settingsDialogBody = document.querySelector("[data-settings-dialog-body]");
+const confirmDialog = document.querySelector("[data-confirm-dialog]");
+const toastStack = document.querySelector("[data-toast-stack]");
+
 const actionIcons = new Map([
   ["＋", "plus"],
   ["✓", "check"],
@@ -34,6 +39,9 @@ const actionIcons = new Map([
   ["copy share link", "link"],
   ["revoke share links", "unlink"],
   ["sign out", "log-out"],
+  ["toggle theme", "moon"],
+  ["workspace settings", "settings"],
+  ["account security", "shield-check"],
   ["create invitation", "user-plus"],
   ["create account", "user-plus"],
   ["accept invitation", "circle-check"],
@@ -78,11 +86,13 @@ const iconPaths = {
   "rotate-cw": '<path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8" /> <path d="M21 3v5h-5" />',
   "shield-off": '<path d="m2 2 20 20" /> <path d="M5 5a1 1 0 0 0-1 1v7c0 5 3.5 7.5 7.67 8.94a1 1 0 0 0 .67.01c2.35-.82 4.48-1.97 5.9-3.71" /> <path d="M9.309 3.652A12.252 12.252 0 0 0 11.24 2.28a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1v7a9.784 9.784 0 0 1-.08 1.264" />',
   "shield-check": '<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z" /> <path d="m9 12 2 2 4-4" />',
+  "settings": '<path d="M9.671 4.136a2.34 2.34 0 0 1 4.659 0 2.34 2.34 0 0 0 3.319 1.915 2.34 2.34 0 0 1 2.33 4.033 2.34 2.34 0 0 0 0 3.831 2.34 2.34 0 0 1-2.33 4.033 2.34 2.34 0 0 0-3.319 1.915 2.34 2.34 0 0 1-4.659 0 2.34 2.34 0 0 0-3.32-1.915 2.34 2.34 0 0 1-2.33-4.033 2.34 2.34 0 0 0 0-3.831A2.34 2.34 0 0 1 6.35 6.051a2.34 2.34 0 0 0 3.319-1.915" /> <circle cx="12" cy="12" r="3" />',
   "qr-code": '<rect width="5" height="5" x="3" y="3" rx="1" /> <rect width="5" height="5" x="16" y="3" rx="1" /> <rect width="5" height="5" x="3" y="16" rx="1" /> <path d="M21 16h-3a2 2 0 0 0-2 2v3" /> <path d="M21 21v.01" /> <path d="M12 7v3a2 2 0 0 1-2 2H7" /> <path d="M3 12h.01" /> <path d="M12 3h.01" /> <path d="M12 16v.01" /> <path d="M16 12h1" /> <path d="M21 12v.01" /> <path d="M12 21v-1" />',
   "arrow-right": '<path d="M5 12h14" /> <path d="m12 5 7 7-7 7" />',
   "circle-plus": '<circle cx="12" cy="12" r="10" /> <path d="M8 12h8" /> <path d="M12 8v8" />',
   "key": '<path d="m15.5 7.5 2.3 2.3a1 1 0 0 0 1.4 0l2.1-2.1a1 1 0 0 0 0-1.4L19 4" /> <path d="m21 2-9.6 9.6" /> <circle cx="7.5" cy="15.5" r="5.5" />',
   "external-link": '<path d="M15 3h6v6" /> <path d="M10 14 21 3" /> <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />',
+  "moon": '<path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401" />',
 };
 
 const buildIcon = (name) => {
@@ -93,8 +103,86 @@ const buildIcon = (name) => {
   return wrapper.firstElementChild;
 };
 
+const showToast = (message, variant = "default") => {
+  if (!toastStack) return;
+  const toast = document.createElement("div");
+  toast.className = "toast" + (variant === "error" ? " toast-error" : "");
+  const dot = document.createElement("span");
+  dot.className = "toast-dot";
+  const text = document.createElement("span");
+  text.textContent = message;
+  toast.append(dot, text);
+  toastStack.append(toast);
+  setTimeout(() => toast.remove(), 4000);
+};
+
+let confirmAccept;
+const closeConfirm = () => confirmDialog?.close();
+if (confirmDialog) {
+  confirmDialog.querySelector("[data-confirm-cancel]").addEventListener(
+    "click",
+    closeConfirm,
+  );
+  confirmDialog.querySelectorAll("[data-dialog-close]").forEach((button) =>
+    button.addEventListener("click", closeConfirm)
+  );
+  confirmDialog.querySelector("[data-confirm-accept]").addEventListener(
+    "click",
+    () => {
+      closeConfirm();
+      confirmAccept?.();
+    },
+  );
+  confirmDialog.addEventListener("click", (event) => {
+    if (event.target === confirmDialog) closeConfirm();
+  });
+}
+const showConfirm = (message, onAccept) => {
+  if (!confirmDialog) {
+    if (window.confirm(message || "Are you sure?")) onAccept();
+    return;
+  }
+  confirmDialog.querySelector("[data-confirm-description]").textContent =
+    message || "Are you sure?";
+  confirmAccept = onAccept;
+  confirmDialog.showModal();
+};
+
+const closeSettingsDialog = () => settingsDialog?.close();
+if (settingsDialog) {
+  settingsDialog.querySelectorAll("[data-dialog-close]").forEach((button) =>
+    button.addEventListener("click", closeSettingsDialog)
+  );
+  settingsDialog.addEventListener("click", (event) => {
+    if (event.target === settingsDialog) closeSettingsDialog();
+  });
+}
+const openSettingsDialog = async (url) => {
+  if (!settingsDialog || !settingsDialogBody) {
+    window.location.assign(url);
+    return;
+  }
+  try {
+    const response = await fetch(url, {
+      headers: { "x-atrium-fragment": "1" },
+    });
+    if (!response.ok) throw new Error("Could not load settings");
+    settingsDialogBody.innerHTML = await response.text();
+    settingsDialog.showModal();
+  } catch {
+    window.location.assign(url);
+  }
+};
+document.querySelectorAll("[data-dialog-fetch]").forEach((trigger) => {
+  trigger.addEventListener("click", (event) => {
+    event.preventDefault();
+    openSettingsDialog(trigger.getAttribute("href"));
+  });
+});
+
 document.querySelectorAll(
-  "button, a.button, a.quiet-action, a.icon-button, summary.icon-button",
+  "button, a.button, a.quiet-action, a.icon-button, summary.icon-button, " +
+    ".rail-account-menu a, .page-menu-popover a",
 ).forEach((action) => {
   if (action.querySelector(".icon")) return;
   const label = action.textContent.trim();
@@ -110,9 +198,12 @@ document.querySelectorAll(
 
 document.querySelectorAll("form[data-confirm]").forEach((form) => {
   form.addEventListener("submit", (event) => {
-    if (!window.confirm(form.dataset.confirm || "Are you sure?")) {
-      event.preventDefault();
-    }
+    if (form.dataset.confirmed === "1") return;
+    event.preventDefault();
+    showConfirm(form.dataset.confirm, () => {
+      form.dataset.confirmed = "1";
+      form.requestSubmit();
+    });
   });
 });
 
@@ -126,6 +217,12 @@ const openSearch = () => {
   searchInput.select();
 };
 
+document.querySelectorAll(".tabs a").forEach((tab) => {
+  tab.addEventListener("mouseenter", () => {
+    fetch(tab.href, { credentials: "same-origin" }).catch(() => {});
+  }, { once: true });
+});
+
 document.querySelectorAll(".global-search").forEach((trigger) => {
   trigger.addEventListener("click", (event) => {
     event.preventDefault();
@@ -134,73 +231,206 @@ document.querySelectorAll(".global-search").forEach((trigger) => {
 });
 
 document.addEventListener("keydown", (event) => {
-  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+  if (!(event.metaKey || event.ctrlKey)) return;
+  const key = event.key.toLowerCase();
+  if (key === "k") {
     event.preventDefault();
     openSearch();
+  } else if (key === "s") {
+    const editor = document.querySelector("[data-visual-editor]");
+    if (editor) {
+      event.preventDefault();
+      editor.requestSubmit();
+    }
+  } else if (key === "e") {
+    const toggle = document.querySelector("[data-edit-toggle]");
+    if (toggle) {
+      event.preventDefault();
+      toggle.click();
+    }
   }
 });
 
+const staticActions = [
+  {
+    id: "new-page",
+    label: "New page",
+    run: () =>
+      document.querySelector('.document-panel form[action="/pages"] button')
+        ?.click(),
+  },
+  {
+    id: "new-book",
+    label: "New book",
+    run: () => document.querySelector(".rail-create button")?.click(),
+  },
+  {
+    id: "account-security",
+    label: "Account security",
+    run: () => openSettingsDialog("/account/security"),
+  },
+  {
+    id: "workspace-settings",
+    label: "Workspace settings",
+    run: () => openSettingsDialog("/settings/members"),
+  },
+  {
+    id: "sign-out",
+    label: "Sign out",
+    run: () =>
+      document.querySelector('.rail-account-menu form[action="/logout"] button')
+        ?.click(),
+  },
+];
+const matchesQuery = (label, query) =>
+  !query || label.toLowerCase().includes(query.toLowerCase());
+
+const RECENT_PAGES_KEY = "atrium-recent-pages";
+const getRecentPages = () => {
+  try {
+    return JSON.parse(localStorage.getItem(RECENT_PAGES_KEY) || "[]");
+  } catch {
+    return [];
+  }
+};
+const recordRecentPage = () => {
+  const match = location.pathname.match(/^\\/pages\\/(\\d+)$/);
+  if (!match) return;
+  const titleEl = document.querySelector(".breadcrumbs strong");
+  if (!titleEl) return;
+  const bookEl = document.querySelector(".breadcrumbs")?.firstElementChild;
+  const entry = {
+    pageId: Number(match[1]),
+    title: titleEl.textContent.trim(),
+    bookTitle: bookEl ? bookEl.textContent.trim() : "",
+  };
+  const list = getRecentPages().filter((item) => item.pageId !== entry.pageId);
+  list.unshift(entry);
+  try {
+    localStorage.setItem(RECENT_PAGES_KEY, JSON.stringify(list.slice(0, 6)));
+  } catch {}
+};
+recordRecentPage();
+const emptyQueryState = () => {
+  const recent = getRecentPages();
+  return recent.length
+    ? { type: "recent", pages: recent }
+    : { type: "message", text: "Type to search every page you can access." };
+};
+
 if (searchDialog && searchInput && searchResults) {
-  const resultLinks = () => Array.from(
-    searchResults.querySelectorAll("[data-search-result]")
+  const items = () => Array.from(
+    searchResults.querySelectorAll("[data-search-item]")
   );
   const selectResult = (index) => {
-    const links = resultLinks();
-    if (!links.length) return;
-    searchIndex = (index + links.length) % links.length;
-    links.forEach((link, itemIndex) =>
-      link.classList.toggle("search-dialog-result-active", itemIndex === searchIndex)
+    const list = items();
+    if (!list.length) return;
+    searchIndex = (index + list.length) % list.length;
+    list.forEach((item, itemIndex) =>
+      item.classList.toggle("search-dialog-result-active", itemIndex === searchIndex)
     );
-    links[searchIndex].scrollIntoView({ block: "nearest" });
+    list[searchIndex].scrollIntoView({ block: "nearest" });
   };
-  const message = (text) => {
-    searchResults.replaceChildren();
-    const paragraph = document.createElement("p");
-    paragraph.textContent = text;
-    searchResults.append(paragraph);
+  const attachHover = () => {
+    items().forEach((item, index) =>
+      item.addEventListener("mousemove", () => selectResult(index))
+    );
   };
-  const renderResults = (results) => {
-    searchResults.replaceChildren();
-    if (!results.length) {
-      message("No matching pages.");
-      return;
-    }
-    results.forEach((result, index) => {
-      const link = document.createElement("a");
-      link.href = "/pages/" + result.pageId;
-      link.dataset.searchResult = "";
-      const path = document.createElement("span");
-      path.textContent = result.bookTitle;
-      const title = document.createElement("strong");
-      title.textContent = result.title;
+  const buildActionsSection = (query) => {
+    const matches = staticActions.filter((action) =>
+      matchesQuery(action.label, query)
+    );
+    if (!matches.length) return null;
+    const section = document.createElement("div");
+    section.className = "search-dialog-actions";
+    matches.forEach((action) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "search-dialog-action";
+      button.dataset.searchItem = "";
+      const label = document.createElement("strong");
+      label.textContent = action.label;
+      button.append(label);
+      button.addEventListener("click", () => {
+        searchDialog.close();
+        action.run();
+      });
+      section.append(button);
+    });
+    return section;
+  };
+  const appendResultLink = (section, result, withExcerpt) => {
+    const link = document.createElement("a");
+    link.href = "/pages/" + result.pageId;
+    link.dataset.searchItem = "";
+    link.dataset.searchResult = "";
+    const path = document.createElement("span");
+    path.textContent = result.bookTitle;
+    const title = document.createElement("strong");
+    title.textContent = result.title;
+    link.append(path, title);
+    if (withExcerpt) {
       const excerpt = document.createElement("small");
       excerpt.textContent = result.excerpt;
-      link.append(path, title, excerpt);
-      link.addEventListener("mousemove", () => selectResult(index));
-      searchResults.append(link);
-    });
+      link.append(excerpt);
+    }
+    section.append(link);
+  };
+  const buildResultsSection = (state) => {
+    const section = document.createElement("div");
+    if (state.type === "results" && state.results.length) {
+      state.results.forEach((result) => appendResultLink(section, result, true));
+      return section;
+    }
+    if (state.type === "recent" && state.pages.length) {
+      const heading = document.createElement("p");
+      heading.className = "search-dialog-heading";
+      heading.textContent = "Recent";
+      section.append(heading);
+      state.pages.forEach((page) => appendResultLink(section, page, false));
+      return section;
+    }
+    const paragraph = document.createElement("p");
+    paragraph.textContent = state.type === "results"
+      ? "No matching pages."
+      : state.text;
+    section.append(paragraph);
+    return section;
+  };
+  const render = (query, pageState) => {
+    searchResults.replaceChildren();
+    const actionsSection = buildActionsSection(query);
+    if (actionsSection) searchResults.append(actionsSection);
+    searchResults.append(buildResultsSection(pageState));
+    attachHover();
     selectResult(0);
   };
+  render("", emptyQueryState());
   searchInput.addEventListener("input", () => {
     clearTimeout(searchTimer);
     searchController?.abort();
     const query = searchInput.value.trim();
     if (!query) {
-      message("Type to search every page you can access.");
+      render(query, emptyQueryState());
       return;
     }
+    render(query, { type: "message", text: "Searching…" });
     searchTimer = setTimeout(async () => {
       searchController = new AbortController();
-      message("Searching…");
       try {
         const response = await fetch("/api/search?q=" + encodeURIComponent(query), {
           headers: { accept: "application/json" },
           signal: searchController.signal,
         });
         if (!response.ok) throw new Error("Search failed");
-        renderResults((await response.json()).results);
+        render(query, {
+          type: "results",
+          results: (await response.json()).results,
+        });
       } catch (error) {
-        if (error.name !== "AbortError") message("Search is unavailable.");
+        if (error.name !== "AbortError") {
+          render(query, { type: "message", text: "Search is unavailable." });
+        }
       }
     }, 140);
   });
@@ -212,7 +442,7 @@ if (searchDialog && searchInput && searchResults) {
       event.preventDefault();
       selectResult(searchIndex - 1);
     } else if (event.key === "Enter") {
-      const selected = resultLinks()[searchIndex];
+      const selected = items()[searchIndex];
       if (selected) {
         event.preventDefault();
         selected.click();
@@ -223,6 +453,72 @@ if (searchDialog && searchInput && searchResults) {
     if (event.target === searchDialog) searchDialog.close();
   });
 }
+
+document.querySelectorAll("[data-theme-toggle]").forEach((button) => {
+  button.addEventListener("click", () => {
+    const root = document.documentElement;
+    let current = root.getAttribute("data-theme");
+    if (!current) {
+      current = window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light";
+    }
+    const next = current === "dark" ? "light" : "dark";
+    root.setAttribute("data-theme", next);
+    try {
+      localStorage.setItem("atrium-theme", next);
+    } catch {
+      // Storage may be unavailable (e.g. private browsing); the toggle
+      // still works for the current page load.
+    }
+  });
+});
+
+document.querySelectorAll("[data-page-nav]").forEach((nav) => {
+  const bookId = nav.dataset.bookId;
+  let dragged = null;
+  nav.querySelectorAll("a[data-page-id]").forEach((link) => {
+    link.addEventListener("dragstart", (event) => {
+      dragged = link;
+      link.setAttribute("dragging", "");
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", link.dataset.pageId);
+    });
+    link.addEventListener("dragend", () => {
+      dragged?.removeAttribute("dragging");
+      dragged = null;
+    });
+  });
+  nav.addEventListener("dragover", (event) => {
+    if (!dragged) return;
+    event.preventDefault();
+    const target = event.target.closest("a[data-page-id]");
+    if (!target || target === dragged) return;
+    const rect = target.getBoundingClientRect();
+    const before = event.clientY < rect.top + rect.height / 2;
+    nav.insertBefore(dragged, before ? target : target.nextSibling);
+  });
+  nav.addEventListener("drop", async (event) => {
+    if (!dragged) return;
+    event.preventDefault();
+    const orderedIds = Array.from(nav.querySelectorAll("a[data-page-id]"))
+      .map((link) => Number(link.dataset.pageId));
+    try {
+      const response = await fetch("/books/" + bookId + "/pages/reorder", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json",
+        },
+        body: JSON.stringify({ pageIds: orderedIds }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+    } catch (error) {
+      alert(error.message || "Could not reorder pages");
+      window.location.reload();
+    }
+  });
+});
 
 document.querySelectorAll("[data-book-title-form]").forEach((form) => {
   const input = form.querySelector('input[name="title"]');
@@ -266,7 +562,7 @@ document.querySelectorAll("[data-book-title-form]").forEach((form) => {
         tile.setAttribute("aria-label", result.title);
       });
     } catch (error) {
-      alert(error.message || "Could not rename book");
+      showToast(error.message || "Could not rename book", "error");
     } finally {
       button.disabled = false;
     }
@@ -361,12 +657,41 @@ if (editor) {
     return inlineMarkdown(node);
   };
 
+  let autosaveTimer;
+  const scheduleAutosave = () => {
+    clearTimeout(autosaveTimer);
+    autosaveTimer = setTimeout(autosave, 1500);
+  };
+
+  const autosave = async () => {
+    saveState.textContent = "Saving…";
+    try {
+      const response = await fetch(editor.action, {
+        method: "POST",
+        headers: { accept: "application/json" },
+        body: new FormData(editor),
+      });
+      if (!response.ok) throw new Error(await response.text());
+      saveState.textContent = "Saved";
+      setTimeout(() => {
+        if (saveState.textContent === "Saved") saveState.textContent = "";
+      }, 2000);
+    } catch {
+      saveState.textContent = "Save failed";
+    }
+  };
+
   const syncMarkdown = () => {
-    source.value = Array.from(canvas.childNodes)
+    const body = Array.from(canvas.childNodes)
       .map((node) => blockMarkdown(node))
       .filter(Boolean)
       .join("\\n\\n");
+    const titleLine = title.value.trim()
+      ? "# " + escapeMarkdown(title.value.trim())
+      : "";
+    source.value = titleLine ? titleLine + "\\n\\n" + body : body;
     saveState.textContent = "Unsaved";
+    scheduleAutosave();
   };
 
   const command = (name, value = null) => {
@@ -395,13 +720,16 @@ if (editor) {
     event.preventDefault();
     command("formatBlock", event.currentTarget.dataset.block);
   });
-  editor.querySelector("[data-insert-table]").addEventListener("click", (event) => {
-    event.preventDefault();
+  const insertTable = () => {
     restoreRange();
     document.execCommand("insertHTML", false,
       '<table><thead><tr><th>Heading</th><th>Heading</th></tr></thead>' +
       '<tbody><tr><td>Value</td><td>Value</td></tr></tbody></table><p><br></p>');
     syncMarkdown();
+  };
+  editor.querySelector("[data-insert-table]").addEventListener("click", (event) => {
+    event.preventDefault();
+    insertTable();
   });
 
   editor.querySelector("[data-upload-trigger]").addEventListener("click", () => {
@@ -443,7 +771,123 @@ if (editor) {
   };
   uploadInput.addEventListener("change", () => upload(uploadInput.files[0]));
 
-  canvas.addEventListener("input", syncMarkdown);
+  title.addEventListener("input", syncMarkdown);
+
+  const slashCommands = [
+    { label: "Heading 2", run: () => command("formatBlock", "h2") },
+    { label: "Heading 3", run: () => command("formatBlock", "h3") },
+    { label: "Bulleted list", run: () => command("insertUnorderedList") },
+    { label: "Quote", run: () => command("formatBlock", "blockquote") },
+    { label: "Table", run: insertTable },
+  ];
+
+  const slashMenu = document.createElement("div");
+  slashMenu.className = "slash-menu";
+  slashMenu.hidden = true;
+  editor.append(slashMenu);
+
+  let slashActive = false;
+  let slashBlock = null;
+  let slashFiltered = [];
+  let slashIndex = 0;
+
+  const closeSlashMenu = () => {
+    slashActive = false;
+    slashBlock = null;
+    slashMenu.hidden = true;
+    slashMenu.replaceChildren();
+  };
+
+  const updateSlashActive = () => {
+    Array.from(slashMenu.children).forEach((button, index) => {
+      button.classList.toggle("slash-menu-active", index === slashIndex);
+    });
+  };
+
+  const runSlashCommand = (item) => {
+    const block = slashBlock;
+    closeSlashMenu();
+    if (!block) return;
+    block.textContent = "";
+    const range = document.createRange();
+    range.selectNodeContents(block);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+    savedRange = range.cloneRange();
+    item.run();
+    canvas.focus();
+  };
+
+  const renderSlashMenu = () => {
+    slashMenu.replaceChildren();
+    slashFiltered.forEach((item, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = item.label;
+      button.addEventListener("mousedown", (event) => event.preventDefault());
+      button.addEventListener("click", () => runSlashCommand(item));
+      slashMenu.append(button);
+    });
+    slashIndex = 0;
+    updateSlashActive();
+    slashMenu.hidden = slashFiltered.length === 0;
+  };
+
+  const positionSlashMenu = (block) => {
+    const rect = block.getBoundingClientRect();
+    slashMenu.style.top = (rect.bottom + 4) + "px";
+    slashMenu.style.left = rect.left + "px";
+  };
+
+  const handleSlashInput = () => {
+    const selection = window.getSelection();
+    if (!selection || !selection.rangeCount || !selection.isCollapsed) {
+      return closeSlashMenu();
+    }
+    const node = selection.getRangeAt(0).startContainer;
+    let block = node.nodeType === Node.TEXT_NODE ? node.parentElement : node;
+    while (block && block.parentElement !== canvas) block = block.parentElement;
+    if (!block) return closeSlashMenu();
+    const match = (block.textContent || "").match(/^\\/(\\S*)$/);
+    if (!match) return closeSlashMenu();
+    slashActive = true;
+    slashBlock = block;
+    const query = match[1].toLowerCase();
+    slashFiltered = slashCommands.filter((item) =>
+      item.label.toLowerCase().includes(query)
+    );
+    positionSlashMenu(block);
+    renderSlashMenu();
+  };
+
+  canvas.addEventListener("input", () => {
+    syncMarkdown();
+    handleSlashInput();
+  });
+  canvas.addEventListener("keydown", (event) => {
+    if (!slashActive || slashMenu.hidden) return;
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      slashIndex = (slashIndex + 1) % slashFiltered.length;
+      updateSlashActive();
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      slashIndex = (slashIndex - 1 + slashFiltered.length) % slashFiltered.length;
+      updateSlashActive();
+    } else if (event.key === "Enter") {
+      const item = slashFiltered[slashIndex];
+      if (item) {
+        event.preventDefault();
+        runSlashCommand(item);
+      }
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeSlashMenu();
+    }
+  });
+  canvas.addEventListener("blur", () => closeSlashMenu());
   canvas.addEventListener("keyup", rememberRange);
   canvas.addEventListener("mouseup", rememberRange);
   canvas.addEventListener("paste", (event) => {
